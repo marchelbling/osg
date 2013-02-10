@@ -1,14 +1,46 @@
 INCLUDE_DIRECTORIES( libdwf )
 
+SET(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,--no-undefined")
+
 SET(TARGET_SRC
 
 	ReaderWriterDWF.cpp
 	DWFHandlers.cpp	
-
+	
+	libdwf/dwf/Toolkit.cpp
 	libdwf/dwf/dwfx/Constants.cpp
+	libdwf/dwf/dwfx/ContentPart.cpp
+	libdwf/dwf/dwfx/CustomProperties.cpp
+	libdwf/dwf/dwfx/DocumentPresentationsPart.cpp
+ 	libdwf/dwf/dwfx/DWFDocument.cpp
+ 	libdwf/dwf/dwfx/DWFDocumentSequence.cpp
+ 	libdwf/dwf/dwfx/DWFProperties.cpp
+ 	libdwf/dwf/dwfx/DWFSection.cpp
+	libdwf/dwf/dwfx/FixedDocument.cpp
+	libdwf/dwf/dwfx/FixedDocumentSequence.cpp
+	libdwf/dwf/dwfx/FixedPage.cpp
+	libdwf/dwf/dwfx/Package.cpp
+	libdwf/dwf/dwfx/ResourcePart.cpp
+	libdwf/dwf/dwfx/reader/CustomPropertiesReader.cpp
+	libdwf/dwf/dwfx/reader/DWFDocumentSequenceReader.cpp
+	libdwf/dwf/dwfx/reader/DWFPropertiesReader.cpp
+	libdwf/dwf/dwfx/reader/FixedPageResourceExtractor.cpp
 	libdwf/dwf/opc/Constants.cpp
+	libdwf/dwf/opc/ContentTypes.cpp
+	libdwf/dwf/opc/CoreProperties.cpp
 	libdwf/dwf/opc/Package.cpp
+	libdwf/dwf/opc/Part.cpp
 	libdwf/dwf/opc/PartContainer.cpp
+	libdwf/dwf/opc/PhysicalLayerReader.cpp
+	libdwf/dwf/opc/PhysicalLayerWriter.cpp
+	libdwf/dwf/opc/Relationship.cpp
+	libdwf/dwf/opc/RelationshipContainer.cpp
+	libdwf/dwf/opc/XMLPart.cpp
+	libdwf/dwf/opc/ZipFileReader.cpp
+	libdwf/dwf/opc/ZipWriter.cpp
+	libdwf/dwf/opc/reader/CorePropertiesReader.cpp
+	libdwf/dwf/opc/reader/RelationshipContainerReader.cpp
+	libdwf/dwf/package/Bookmark.cpp
 	libdwf/dwf/package/Class.cpp
 	libdwf/dwf/package/Constants.cpp
 	libdwf/dwf/package/Content.cpp
@@ -35,6 +67,18 @@ SET(TARGET_SRC
 	libdwf/dwf/package/Paper.cpp
 	libdwf/dwf/package/Property.cpp
 	libdwf/dwf/package/PropertySet.cpp
+	libdwf/dwf/package/Resource.cpp
+	libdwf/dwf/package/Section.cpp
+	libdwf/dwf/package/SectionBuilder.cpp
+	libdwf/dwf/package/SectionContentResource.cpp
+	libdwf/dwf/package/Signature.cpp
+	libdwf/dwf/package/SignatureRequest.cpp
+	libdwf/dwf/package/SignatureResource.cpp
+	libdwf/dwf/package/SignatureSection.cpp
+	libdwf/dwf/package/Source.cpp
+	libdwf/dwf/package/Units.cpp
+	libdwf/dwf/package/X509.cpp
+	libdwf/dwf/package/XML.cpp
 	libdwf/dwf/package/reader/ContentReader.cpp
 	libdwf/dwf/package/reader/ContentResourceReader.cpp
 	libdwf/dwf/package/reader/DataSectionDescriptorReader.cpp
@@ -48,37 +92,25 @@ SET(TARGET_SRC
 	libdwf/dwf/package/reader/SectionDescriptorReader.cpp
 	libdwf/dwf/package/reader/SignatureReader.cpp
 	libdwf/dwf/package/reader/SignatureSectionDescriptorReader.cpp
-	libdwf/dwf/package/Resource.cpp
-	libdwf/dwf/package/Section.cpp
-	libdwf/dwf/package/SectionBuilder.cpp
-	libdwf/dwf/package/SectionContentResource.cpp
-	libdwf/dwf/package/Signature.cpp
-	libdwf/dwf/package/SignatureRequest.cpp
-	libdwf/dwf/package/SignatureResource.cpp
-	libdwf/dwf/package/SignatureSection.cpp
-	libdwf/dwf/package/Source.cpp
-	libdwf/dwf/package/Units.cpp
 	libdwf/dwf/package/utility/DefinedObjectContainer.cpp
 	libdwf/dwf/package/utility/DWFPackageFileDescriptor.cpp
 	libdwf/dwf/package/utility/PropertyContainer.cpp
 	libdwf/dwf/package/utility/ResourceContainer.cpp
-	libdwf/dwf/package/X509.cpp
-	libdwf/dwf/package/XML.cpp
 	libdwf/dwf/presentation/ContentPresentation.cpp
-	libdwf/dwf/presentation/ContentPresentationDocument.cpp
 	libdwf/dwf/presentation/ContentPresentationModelViewNode.cpp
 	libdwf/dwf/presentation/ContentPresentationNode.cpp
 	libdwf/dwf/presentation/ContentPresentationReferenceNode.cpp
 	libdwf/dwf/presentation/ContentPresentationResource.cpp
 	libdwf/dwf/presentation/ContentPresentationView.cpp
 	libdwf/dwf/presentation/ModelScene.cpp
+	libdwf/dwf/presentation/PropertyReference.cpp
+	libdwf/dwf/presentation/ContentPresentationDocument.cpp
 	libdwf/dwf/presentation/PackageContentPresentations.cpp
 	libdwf/dwf/presentation/reader/ContentPresentationReader.cpp
 	libdwf/dwf/presentation/utility/ContentPresentationContainer.cpp
 	libdwf/dwf/presentation/utility/ContentPresentationNodeContainer.cpp
 	libdwf/dwf/presentation/utility/ContentPresentationViewContainer.cpp
 	libdwf/dwf/presentation/utility/PropertyReferenceContainer.cpp
-	libdwf/dwf/Toolkit.cpp
 	libdwf/dwf/w3dtk/BAscii.cpp
 	libdwf/dwf/w3dtk/BCompress.cpp
 	libdwf/dwf/w3dtk/BEdgeBreakerCommon.cpp
@@ -92,6 +124,25 @@ SET(TARGET_SRC
 	libdwf/dwf/w3dtk/BPolyPoly.cpp
 	libdwf/dwf/w3dtk/BStreamFileToolkit.cpp
 	libdwf/dwf/w3dtk/W3DCamera.cpp
+	libdwf/dwf/w3dtk/utility/cache_memory_object.cpp
+	libdwf/dwf/w3dtk/utility/huffman.cpp
+	libdwf/dwf/w3dtk/utility/tempfile_utils.cpp
+	libdwf/dwf/w3dtk/utility/utf_utils.cpp
+	libdwf/dwf/w3dtk/utility/vconf.cpp
+	libdwf/dwf/w3dtk/utility/vdlist.cpp
+	libdwf/dwf/w3dtk/utility/vhash.cpp
+	libdwf/dwf/w3dtk/utility/vlist.cpp
+	libdwf/dwf/w3dtk/utility/vlogfile.cpp
+	libdwf/dwf/xps/Constants.cpp
+	libdwf/dwf/xps/FixedDocument.cpp
+	libdwf/dwf/xps/FixedDocumentSequence.cpp
+	libdwf/dwf/xps/FixedPage.cpp
+	libdwf/dwf/xps/Package.cpp
+	libdwf/dwf/xps/XPSDocRefResourceExtractor.cpp
+	libdwf/dwf/xps/XPSFixedDocumentResourceExtractor.cpp
+	libdwf/dwf/xps/XPSFixedPageResourceExtractor.cpp
+	libdwf/dwf/xps/XPSFontResourceExtractor.cpp
+
 	libdwf/dwfcore/ansi/Core.cpp
 	libdwf/dwfcore/ansi/Mutex.cpp
 	libdwf/dwfcore/ansi/Semaphore.cpp
@@ -105,6 +156,12 @@ SET(TARGET_SRC
 	libdwf/dwfcore/BufferInputStream.cpp
 	libdwf/dwfcore/BufferOutputStream.cpp
 	libdwf/dwfcore/crypto/AsymmetricAlgorithm.cpp
+	libdwf/dwfcore/crypto/CryptoEngine.cpp
+	libdwf/dwfcore/crypto/CryptoEngineProvider.cpp
+	libdwf/dwfcore/crypto/CryptoKeyGeneratorProvider.cpp
+	libdwf/dwfcore/crypto/DigestEngine.cpp
+	libdwf/dwfcore/crypto/SymmetricCipher.cpp
+	libdwf/dwfcore/crypto/X509Certificate.cpp
 	libdwf/dwfcore/DecompressingInputStream.cpp
 	libdwf/dwfcore/Digest.cpp
 	libdwf/dwfcore/DigestInputStream.cpp
@@ -132,20 +189,76 @@ SET(TARGET_SRC
 	libdwf/dwfcore/x86/Timer.cpp
 	libdwf/dwfcore/XML.cpp
 	libdwf/dwfcore/XMLEncodingOutputStream.cpp
-	libdwf/dwfcore/XMLParser.cpp
-	libdwf/dwfcore/zip/password.cpp
-	libdwf/dwfcore/zip/unzip.cpp
+	libdwf/dwfcore/XMLParser.cpp	
 	libdwf/dwfcore/ZipFileDescriptor.cpp
 	libdwf/dwfcore/ZippingOutputStream.cpp
-	libdwf/dwf/w3dtk/utility/vhash.cpp
+	libdwf/dwfcore/zip/gvmat32c.cpp
+	libdwf/dwfcore/zip/password.cpp
+	libdwf/dwfcore/zip/unzip.cpp
+	libdwf/dwfcore/zip/zip.cpp
 
 	${C_FILES}
+	libdwf/dwf/w3dtk/jpeg/jcapimin.c
+	libdwf/dwf/w3dtk/jpeg/jcomapi.c
+	libdwf/dwf/w3dtk/jpeg/jdcoefct.c
+	libdwf/dwf/w3dtk/jpeg/jdpostct.c
+	libdwf/dwf/w3dtk/jpeg/jidctred.c
+	libdwf/dwf/w3dtk/jpeg/jcapistd.c
+	libdwf/dwf/w3dtk/jpeg/jcparam.c
+	libdwf/dwf/w3dtk/jpeg/jdcolor.c
+	libdwf/dwf/w3dtk/jpeg/jdsample.c
+	libdwf/dwf/w3dtk/jpeg/jccoefct.c
+	libdwf/dwf/w3dtk/jpeg/jcphuff.c
+	libdwf/dwf/w3dtk/jpeg/jddctmgr.c
+	libdwf/dwf/w3dtk/jpeg/jdtrans.c
+	libdwf/dwf/w3dtk/jpeg/jccolor.c
+	libdwf/dwf/w3dtk/jpeg/jcprepct.c
+	libdwf/dwf/w3dtk/jpeg/jdhuff.c
+	libdwf/dwf/w3dtk/jpeg/jerror.c
+	libdwf/dwf/w3dtk/jpeg/jcdctmgr.c
+	libdwf/dwf/w3dtk/jpeg/jcsample.c
+	libdwf/dwf/w3dtk/jpeg/jdinput.c
+	libdwf/dwf/w3dtk/jpeg/jfdctflt.c
+	libdwf/dwf/w3dtk/jpeg/jmemmgr.c
+	libdwf/dwf/w3dtk/jpeg/jchuff.c
+	libdwf/dwf/w3dtk/jpeg/jctrans.c
+	libdwf/dwf/w3dtk/jpeg/jdmainct.c
+	libdwf/dwf/w3dtk/jpeg/jfdctfst.c
+	libdwf/dwf/w3dtk/jpeg/jcinit.c
+	libdwf/dwf/w3dtk/jpeg/jdapimin.c
 	libdwf/dwf/w3dtk/jpeg/jdmarker.c
+	libdwf/dwf/w3dtk/jpeg/jfdctint.c
+	libdwf/dwf/w3dtk/jpeg/jmemnobs.c
+	libdwf/dwf/w3dtk/jpeg/jcmainct.c
+	libdwf/dwf/w3dtk/jpeg/jdapistd.c
+	libdwf/dwf/w3dtk/jpeg/jdmaster.c
+	libdwf/dwf/w3dtk/jpeg/jidctflt.c
+	libdwf/dwf/w3dtk/jpeg/jquant1.c
+	libdwf/dwf/w3dtk/jpeg/jcmarker.c
+	libdwf/dwf/w3dtk/jpeg/jdatadst.c
+	libdwf/dwf/w3dtk/jpeg/jdmerge.c
+	libdwf/dwf/w3dtk/jpeg/jidctfst.c
+	libdwf/dwf/w3dtk/jpeg/jquant2.c
+	libdwf/dwf/w3dtk/jpeg/jcmaster.c
+	libdwf/dwf/w3dtk/jpeg/jdatasrc.c
+	libdwf/dwf/w3dtk/jpeg/jdphuff.c
+	libdwf/dwf/w3dtk/jpeg/jidctint.c
 	libdwf/dwf/w3dtk/jpeg/jutils.c
+	libdwf/dwfcore/digest/md5.c
+	libdwf/dwfcore/digest/sha1.c
 	libdwf/dwfcore/expat/xmlparse.c
 	libdwf/dwfcore/expat/xmlrole.c
 	libdwf/dwfcore/expat/xmltok.c
-	
+	libdwf/dwf/w3dtk/hoops/fastlod.c
+	libdwf/dwf/w3dtk/hoops/mxmain.c
+	libdwf/dwf/w3dtk/hoops/mxmath.c
+	libdwf/dwf/w3dtk/hoops/mxmetric.c
+	libdwf/dwf/w3dtk/hoops/mxmodel.c
+	libdwf/dwf/w3dtk/hoops/mxqslim.c
+	libdwf/dwf/w3dtk/hoops/mxtype.c
+	libdwf/dwf/w3dtk/hoops/shellopt.cpp
+	libdwf/dwf/w3dtk/hoops/trialate.c
+
 )
 #### end var setup  ###
 SETUP_PLUGIN(dwf)
