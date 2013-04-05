@@ -64,7 +64,7 @@ TK_Status DWFIncludeSegmentHandler::Execute( BStreamFileToolkit& pTk )
 
 		if ( 1 == sscanf ( GetSegment (), IncludeLibraryAliasFormat.data (), includeLibraryName.data () ) )
 		{
-			osg::Group* osg_group = includeNodes [ includeLibraryName.data () ];
+			osg::Group* osg_group = dynamic_cast<osg::Group*>( includeNodes [ includeLibraryName.data () ] );
 			assert ( osg_group != 0 );
 			topNodes.top()->asGroup()->addChild ( osg_group );
 		}
@@ -146,19 +146,23 @@ TK_Status DWFShellHandler::Execute( BStreamFileToolkit& parser )
 
 		osg::Geode* mGeode = new osg::Geode;
 
-		for ( int ind_face = 0; ind_face < n_face_list; )
+		// ind_face - order number of face
+		// ind_face_list - index in GetFaces() array, see help for TK_Shell::SetFaces()
+		for ( int ind_face_list = 0, ind_face = 0; ind_face_list																												 < n_face_list; ind_face++ )
 		{
-			const int n_verts_in_face = face_list [ ind_face++ ];
+			// The first integer is the number
+            // of vertices that should be connected to form the first n_verts_in_face
+			const int n_verts_in_face = face_list [ ind_face_list++ ];
 
 			// POLYGON
 			osg::Vec3Array* vertices = new osg::Vec3Array;
-			for ( int vert_ind = 0; vert_ind < n_verts_in_face; ++vert_ind, ++ind_face )
+			for ( int vert_ind = 0; vert_ind < n_verts_in_face; ++vert_ind, ++ind_face_list )
 			{
 				vertices->push_back (
 		                     osg::Vec3 (
-		                                points [ 3 * face_list [ ind_face ] + 0 ],
-		                                points [ 3 * face_list [ ind_face ] + 1 ],
-		                                points [ 3 * face_list [ ind_face ] + 2 ] ) );
+		                                points [ 3 * face_list [ ind_face_list ] + 0 ],
+		                                points [ 3 * face_list [ ind_face_list ] + 1 ],
+		                                points [ 3 * face_list [ ind_face_list ] + 2 ] ) );
 			}
 
 			osg::Geometry* geom = new osg::Geometry;
@@ -166,6 +170,14 @@ TK_Status DWFShellHandler::Execute( BStreamFileToolkit& parser )
 			// pass the created vertex array to the points geometry object.
 			geom->setVertexArray ( vertices );
 			geom->addPrimitiveSet( new osg::DrawArrays( osg::PrimitiveSet::POLYGON, 0, vertices->size() ) );
+
+			if ( HasFaceColors () )
+			{
+				osg::Material* material =  new osg::Material;
+				float alpha = 1.0f;
+				material->setDiffuse ( osg::Material::FRONT_AND_BACK, osg::Vec4 ( GetFaceColors()[3*ind_face+0], GetFaceColors()[3*ind_face+1], GetFaceColors()[3*ind_face+2], alpha) );
+				geom->getOrCreateStateSet()->setAttributeAndModes( material );
+			}
 
 			mGeode->addDrawable(geom);
 

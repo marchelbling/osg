@@ -78,7 +78,7 @@ public:
 		return _material;
 	}
 
-	bool isChannelValid (const int& channel) const
+	bool isChannelValid ( int channel) const
 	{
 		return ( GetChannels() & ( 1 << channel ));
 	}
