@@ -29,6 +29,7 @@ stack<osg::Node*> topNodes;
 MapIncludeNodes includeNodes;
 
 const string IncludeLibraryAliasFormat ( "?Include Library/%s" );
+static size_t nModellingMatrices = 0;
 
 TK_Status DWFOpenSegmentHandler::Execute ( BStreamFileToolkit& pTk )
 {
@@ -77,6 +78,9 @@ TK_Status DWFCloseSegmentHandler::Execute( BStreamFileToolkit& pTk )
 	TK_Status status = TK_Close_Segment::Execute(pTk);
 	if(status == TK_Normal )
 	{
+		while (nModellingMatrices--)
+			topNodes.pop();
+		nModellingMatrices = 0;
 		topNodes.pop();
 	}
 	return status;
@@ -94,6 +98,7 @@ TK_Status DWFModellingMatrixHandler::Execute( BStreamFileToolkit& pTk )
 		topNodes.top()->asGroup()->addChild ( transform );
 
 		topNodes.push ( transform );
+		nModellingMatrices++;
 	}
 	return status;
 }
@@ -148,7 +153,7 @@ TK_Status DWFShellHandler::Execute( BStreamFileToolkit& parser )
 
 		// ind_face - order number of face
 		// ind_face_list - index in GetFaces() array, see help for TK_Shell::SetFaces()
-		for ( int ind_face_list = 0, ind_face = 0; ind_face_list																												 < n_face_list; ind_face++ )
+		for ( int ind_face_list = 0, ind_face = 0; ind_face_list < n_face_list; ind_face++ )
 		{
 			// The first integer is the number
             // of vertices that should be connected to form the first n_verts_in_face
@@ -156,7 +161,7 @@ TK_Status DWFShellHandler::Execute( BStreamFileToolkit& parser )
 
 			// POLYGON
 			osg::Vec3Array* vertices = new osg::Vec3Array;
-			for ( int vert_ind = 0; vert_ind < n_verts_in_face; ++vert_ind, ++ind_face_list )
+			for ( int vert_ind = 0, face_num = 0; vert_ind < n_verts_in_face; ++vert_ind, ++ind_face_list, ++face_num )
 			{
 				vertices->push_back (
 		                     osg::Vec3 (
@@ -175,7 +180,7 @@ TK_Status DWFShellHandler::Execute( BStreamFileToolkit& parser )
 			{
 				osg::Material* material =  new osg::Material;
 				float alpha = 1.0f;
-				material->setDiffuse ( osg::Material::FRONT_AND_BACK, osg::Vec4 ( GetFaceColors()[3*ind_face+0], GetFaceColors()[3*ind_face+1], GetFaceColors()[3*ind_face+2], alpha) );
+				material->setDiffuse ( osg::Material::FRONT_AND_BACK, osg::Vec4 ( GetFaceColors()[3*face_num+0], GetFaceColors()[3*face_num+1], GetFaceColors()[3*face_num+2], alpha) );
 				geom->getOrCreateStateSet()->setAttributeAndModes( material );
 			}
 
