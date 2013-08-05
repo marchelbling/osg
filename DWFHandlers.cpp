@@ -122,11 +122,21 @@ TK_Status DWFColorHandler::Execute( BStreamFileToolkit& parser )
 
 		float alpha = 1.0f;
 
-		if ( GetDiffuse() )
-			getOrCreateMaterial()->setDiffuse ( osg::Material::FRONT_AND_BACK, osg::Vec4 ( GetDiffuse()[0], GetDiffuse()[1], GetDiffuse()[2], alpha) );
+		if ( isChannelValid((int)TKO_Channel_Diffuse) ) {
+			if ( GetDiffuseName() ) {
+				// process diffuse name, texture
+			}
+			else {
 
-		if ( GetSpecular() )
-			getOrCreateMaterial()->setSpecular ( osg::Material::FRONT_AND_BACK, osg::Vec4 ( GetSpecular()[0], GetSpecular()[1], GetSpecular()[2], alpha) );
+				getOrCreateMaterial()->setDiffuse ( osg::Material::FRONT_AND_BACK, osg::Vec4 ( GetDiffuse()[0], GetDiffuse()[1], GetDiffuse()[2], alpha) );
+			}
+		}
+
+		if ( isChannelValid((int)TKO_Channel_Specular) ) {
+			if ( GetSpecularName() ) { }
+			else
+				getOrCreateMaterial()->setSpecular ( osg::Material::FRONT_AND_BACK, osg::Vec4 ( GetSpecular()[0], GetSpecular()[1], GetSpecular()[2], alpha) );
+		}
 
 		if ( isChannelValid((int)TKO_Channel_Gloss) )
 			getOrCreateMaterial()->setShininess(osg::Material::FRONT_AND_BACK, GetGloss() );
