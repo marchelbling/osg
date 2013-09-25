@@ -1,6 +1,7 @@
 #ifndef CARRAY_HXX
 #define CARRAY_HXX
 
+#include <cfloat>
 
 template <typename C>
 CBaseArray<C>::CBaseArray(T const& bbl, T const& ufr, int bytes, int mode) :
@@ -31,7 +32,7 @@ void CBaseArray<C>::compress(C const* input,
   if(useQuantization())
   {
     _data = new C;
-    quantizeArray(dynamic_cast<C*>(_data.get()), input, _bbl, _ufr);
+    quantizeArray(dynamic_cast<C*>(_data.get()), input, _bbl, _ufr , strips);
   }
   else
     _data = new C(input->begin(), input->end());
@@ -47,7 +48,7 @@ void CBaseArray<C>::decompress(C const* input,
   if(useQuantization())
   {
     _data = new C;
-    unquantizeArray(dynamic_cast<C*>(_data.get()), input, _bbl, _ufr);
+    unquantizeArray(dynamic_cast<C*>(_data.get()), input, _bbl, _ufr, strips);
     input = dynamic_cast<C*>(_data.get());
   }
 
@@ -68,6 +69,10 @@ void CBaseArray<C>::predictParallelogram(C* predictions,
   std::vector<bool> processed(positions->getNumElements(), false);
   T vertex;
 
+  // reset bounding box vectors
+  setMaxVector(_bbl);
+  setMinVector(_ufr);
+
   for(std::vector< std::vector<size_t> >::const_iterator it_strip = strips.begin() ;
       it_strip != strips.end() ; ++ it_strip)
   {
@@ -77,18 +82,15 @@ void CBaseArray<C>::predictParallelogram(C* predictions,
     {
       vertex = (*positions)[*it];
       if(strip_window.size() != 3)
-      {
-        // note that if the vertex was *not* one of the three first vertices of
-        // a previous strip, we'll use the predicted position. Using the exact
-        // position is feasible but require one extra step at unprediction time
-        // to first reset all "strip starting vertices"
-        if(!processed[*it])
-          (*predictions)[*it] = vertex;
-      }
+        (*predictions)[*it] = vertex;
       else
       {
         if(!processed[*it])
+        {
           (*predictions)[*it] = vertex - parallelogramPrediction<T>(strip_window);
+          _bbl = vectorMin(_bbl, (*predictions)[*it]);
+          _ufr = vectorMax(_ufr, (*predictions)[*it]);
+        }
         strip_window.pop_front();
       }
       processed[*it] = true;
@@ -105,6 +107,18 @@ void CBaseArray<C>::unpredictParallelogram(C* positions,
 {
   std::vector<bool> processed(predictions->getNumElements(), false);
   T prediction;
+
+  // first keep strip starting vertices invariant
+  for(std::vector< std::vector<size_t> >::const_iterator it_strip = strips.begin() ;
+      it_strip != strips.end() ; ++ it_strip)
+  {
+    for(std::vector<size_t>::const_iterator it = it_strip->begin() ;
+        it != it_strip->begin() + 3 ; ++ it)
+    {
+      (*positions)[*it] = (*predictions)[*it];
+      processed[*it] = true;
+    }
+  }
 
   for(std::vector< std::vector<size_t> >::const_iterator it_strip = strips.begin() ;
       it_strip != strips.end() ; ++ it_strip)
@@ -162,5 +176,61 @@ osg::Vec2 CBaseArray<C>::unquantize(osg::Vec2 const& v, osg::Vec2 const& h, osg:
   return bbl + osg::Vec2(v.x() * h.x(),
                          v.y() * h.y());
 }
+
+
+template<typename C>
+osg::Vec3 CBaseArray<C>::vectorMin(osg::Vec3 const& a, osg::Vec3 const&b) const
+{
+  return osg::Vec3(std::min(a.x(), b.x()),
+                   std::min(a.y(), b.y()),
+                   std::min(a.z(), b.z()));
+}
+
+template<typename C>
+osg::Vec2 CBaseArray<C>::vectorMin(osg::Vec2 const& a, osg::Vec2 const&b) const
+{
+  return osg::Vec2(std::min(a.x(), b.x()),
+                   std::min(a.y(), b.y()));
+}
+
+template<typename C>
+osg::Vec3 CBaseArray<C>::vectorMax(osg::Vec3 const& a, osg::Vec3 const&b) const
+{
+  return osg::Vec3(std::max(a.x(), b.x()),
+                   std::max(a.y(), b.y()),
+                   std::max(a.z(), b.z()));
+}
+
+template<typename C>
+osg::Vec2 CBaseArray<C>::vectorMax(osg::Vec2 const& a, osg::Vec2 const&b) const
+{
+  return osg::Vec2(std::max(a.x(), b.x()),
+                   std::max(a.y(), b.y()));
+}
+
+template<typename C>
+void CBaseArray<C>::setMinVector(osg::Vec3& v) const
+{ v = osg::Vec3(FLT_MIN, FLT_MIN, FLT_MIN); }
+
+template<typename C>
+void CBaseArray<C>::setMinVector(osg::Vec2& v) const
+{ v = osg::Vec2(FLT_MIN, FLT_MIN); }
+
+template<typename C>
+void CBaseArray<C>::setMaxVector(osg::Vec3& v) const
+{ v = osg::Vec3(FLT_MAX, FLT_MAX, FLT_MAX); }
+
+template<typename C>
+void CBaseArray<C>::setMaxVector(osg::Vec2& v) const
+{ v = osg::Vec2(FLT_MAX, FLT_MAX); }
+
+
+template<typename C>
+osg::BoundingBox CBaseArray<C>::makeBoundingBox(osg::Vec3 const& bbl, osg::Vec3 const& ufr) const
+{  return osg::BoundingBox(bbl, ufr); }
+
+template<typename C>
+osg::BoundingBox CBaseArray<C>::makeBoundingBox(osg::Vec2 const& bbl, osg::Vec2 const& ufr) const
+{  return osg::BoundingBox(bbl.x(), bbl.y(), 0.f, ufr.x(), ufr.y(), 0.f); }
 
 #endif

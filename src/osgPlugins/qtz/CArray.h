@@ -5,6 +5,7 @@
 #include <vector>
 #include <deque>
 #include <fstream>
+#include <set>
 // OSG
 #include <osg/Array>
 #include <osg/BoundingBox>
@@ -37,6 +38,9 @@ class CBaseArray : public CArray
     osg::Array* getData() const
     { return _data.get(); }
 
+    osg::BoundingBox getBoundingBox() const
+    { return makeBoundingBox(_bbl, _ufr); }
+
   protected:
     bool useQuantization() const
     { return static_cast<bool>(_mode & quantization); }
@@ -68,24 +72,79 @@ class CBaseArray : public CArray
     void quantizeArray(K* result,
                        K const* buffer,
                        typename K::ElementDataType const& bbl,
-                       typename K::ElementDataType const& ufr)
+                       typename K::ElementDataType const& ufr,
+                       std::vector< std::vector<size_t> > const& strips=std::vector< std::vector<size_t> >())
     {
       typename K::ElementDataType h = quantizationPrecision<typename K::ElementDataType>(bbl, ufr);
 
-      for(typename K::const_iterator it = buffer->begin() ; it != buffer->end() ; ++ it)
-        result->push_back(quantize(*it, h, bbl));
+      if(usePrediction() && !strips.empty())
+      {
+        std::set<size_t> strips_vertices;
+        for(std::vector< std::vector<size_t> >::const_iterator it_strip = strips.begin() ;
+            it_strip != strips.end() ; ++ it_strip)
+        {
+          for(std::vector<size_t>::const_iterator it_vtx = it_strip->begin() ;
+              it_vtx != it_strip->begin() + 3 ; ++ it_vtx)
+            strips_vertices.insert(*it_vtx);
+        }
+
+        // only quantize strips that do *not* start a strip
+        size_t ii = 0;
+        for(typename K::const_iterator it = buffer->begin() ;
+            it != buffer->end() ;
+            ++ it, ++ ii)
+        {
+          if(strips_vertices.find(ii) == strips_vertices.end())
+            result->push_back(quantize(*it, h, bbl));
+          else
+            result->push_back(*it);
+        }
+      }
+      else
+      {
+        for(typename K::const_iterator it = buffer->begin() ; it != buffer->end() ; ++ it)
+          result->push_back(quantize(*it, h, bbl));
+      }
     }
 
     template<typename K>
     void unquantizeArray(K* result,
                          K const* buffer,
                          typename K::ElementDataType const& bbl,
-                         typename K::ElementDataType const& ufr)
+                         typename K::ElementDataType const& ufr,
+                         std::vector< std::vector<size_t> > const& strips=std::vector< std::vector<size_t> >())
     {
       typename K::ElementDataType h = quantizationPrecision<typename K::ElementDataType>(bbl, ufr);
 
-      for(typename K::const_iterator it = buffer->begin() ; it != buffer->end() ; ++ it)
-        result->push_back(unquantize(*it, h, bbl));
+      if(usePrediction() && !strips.empty())
+      {
+        size_t ii = 0;
+        std::set<size_t> strips_vertices;
+        for(std::vector< std::vector<size_t> >::const_iterator it_strip = strips.begin() ;
+            it_strip != strips.end() ; ++ it_strip)
+        {
+          for(std::vector<size_t>::const_iterator it_vtx = it_strip->begin() ;
+              it_vtx != it_strip->begin() + 3 ; ++ it_vtx)
+            strips_vertices.insert(*it_vtx);
+        }
+
+        // only quantize strips that do *not* start a strip
+        for(typename K::const_iterator it = buffer->begin() ;
+            it != buffer->end() ;
+            ++ it, ++ ii)
+        {
+          if(strips_vertices.find(ii) == strips_vertices.end())
+            result->push_back(unquantize(*it, h, bbl));
+          else
+            result->push_back(*it);
+        }
+
+      }
+      else
+      {
+        for(typename K::const_iterator it = buffer->begin() ; it != buffer->end() ; ++ it)
+          result->push_back(unquantize(*it, h, bbl));
+      }
     }
 
     osg::Vec2 quantize(osg::Vec2 const&, osg::Vec2 const&, osg::Vec2 const&) const;
@@ -93,6 +152,19 @@ class CBaseArray : public CArray
 
     osg::Vec2 unquantize(osg::Vec2 const&, osg::Vec2 const&, osg::Vec2 const&) const;
     osg::Vec3 unquantize(osg::Vec3 const&, osg::Vec3 const&, osg::Vec3 const&) const;
+
+    //some vector utils
+    osg::Vec3 vectorMin(osg::Vec3 const&, osg::Vec3 const&) const;
+    osg::Vec2 vectorMin(osg::Vec2 const&, osg::Vec2 const&) const;
+    osg::Vec3 vectorMax(osg::Vec3 const&, osg::Vec3 const&) const;
+    osg::Vec2 vectorMax(osg::Vec2 const&, osg::Vec2 const&) const;
+    void setMinVector(osg::Vec3&) const;
+    void setMinVector(osg::Vec2&) const;
+    void setMaxVector(osg::Vec3&) const;
+    void setMaxVector(osg::Vec2&) const;
+
+    osg::BoundingBox makeBoundingBox(osg::Vec3 const&, osg::Vec3 const&) const;
+    osg::BoundingBox makeBoundingBox(osg::Vec2 const&, osg::Vec2 const&) const;
 
   protected:
     osg::ref_ptr<osg::Array> _data;

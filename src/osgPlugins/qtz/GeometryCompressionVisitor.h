@@ -41,6 +41,8 @@ class GeometryCompressionVisitor : public osg::NodeVisitor
     bool handleColors()   const { return _attributes & color; }
 
     void handleCompressionParameters(osg::Geometry&);
+    void handleDecompressionParameters(osg::Geometry&);
+
     std::vector< std::vector<size_t> > getStripsVector(osg::Geometry const&) const;
 
     osg::BoundingBox _vertexBoundingBox;

@@ -60,7 +60,7 @@ void GeometryCompressionVisitor::apply(osg::Geometry& geom)
   else
     osg::notify(osg::NOTICE) << "Geometry: " << &geom << std::endl;
 
-  handleCompressionParameters(geom);
+  handleDecompressionParameters(geom);
 
 
   std::vector< std::vector<size_t> > strips = getStripsVector(geom);
@@ -73,6 +73,7 @@ void GeometryCompressionVisitor::apply(osg::Geometry& geom)
       ca.compress(dynamic_cast<osg::Vec3Array const*>(vertices.get()), strips);
     else
       ca.decompress(dynamic_cast<osg::Vec3Array const*>(vertices.get()), strips);
+    _vertexBoundingBox = ca.getBoundingBox();
     geom.setVertexArray(ca.getData());
   }
 
@@ -101,6 +102,7 @@ void GeometryCompressionVisitor::apply(osg::Geometry& geom)
       geom.setTexCoordArray(uv_id, ca.getData());
     }
   }
+  handleCompressionParameters(geom);
 }
 
 
@@ -136,7 +138,11 @@ void GeometryCompressionVisitor::handleCompressionParameters(osg::Geometry& geom
     geom.setUserValue("mode", _mode);
     geom.setUserValue("bytes", _bytes);
   }
-  else
+}
+
+void GeometryCompressionVisitor::handleDecompressionParameters(osg::Geometry& geom)
+{
+  if(!_compress)
   {
     //get compression parameters from user values
     float bx, by, bz, ux, uy, uz;
