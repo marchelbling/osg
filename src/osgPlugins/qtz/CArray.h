@@ -125,6 +125,12 @@ class CNormalArray : public CBaseArray<osg::Vec3Array>
     void decompress(osg::Array const*);
 
   private:
+    void project(osg::Vec2Array* projections, osg::Vec3Array const* normals)
+    { return projectAzimuth(projections, normals); }
+
+    void unproject(osg::Vec3Array* normals, osg::Vec2Array const* projections)
+    { return unprojectAzimuth(normals, projections); }
+
     void projectAzimuth(osg::Vec2Array* projections, osg::Vec3Array const* normals);
     void unprojectAzimuth(osg::Vec3Array* normals, osg::Vec2Array const* projections);
 };
