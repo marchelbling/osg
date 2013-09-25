@@ -161,11 +161,10 @@ public:
     Node* compress_node(Node const& node, osgDB::Options const* options) const
     {
       GeometryCompressionVisitor compressorVisitor(true);
+
+      // parse pseudo-loader options
       setCompressionParameters(compressorVisitor, options);
-      BoundingSphere bs = node.getBound();
-      BoundingBox bb;
-      bb.expandBy(bs);
-      compressorVisitor.setBoundingBox(bb);
+
       Node* clone = dynamic_cast<Node *>(node.clone(osg::CopyOp::DEEP_COPY_ALL));
       clone->accept(compressorVisitor);
       return clone;
