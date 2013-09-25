@@ -1,0 +1,112 @@
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>Simple vertex unquantization in js</title>
+    </head>
+
+    <body>
+        <input type="file" id="files" name="files[]" multiple /></br>
+        <output id="comp_header"></output></br>
+        <output id="comp_data"></output></br>
+        
+        <script>
+          function handleFileSelect(evt) {
+            var files = evt.target.files; // FileList object
+        
+            var read_header = function(data) {
+              var header = {
+                  bbl: { x: data.getFloat32(0, true),
+                         y: data.getFloat32(4, true),
+                         z: data.getFloat32(8, true) },
+                  ufr: { x: data.getFloat32(12, true),
+                         y: data.getFloat32(16, true),
+                         z: data.getFloat32(20, true) },
+                  bits: (data.getInt32(24, true) << 3),
+                  bytes: data.getInt32(24, true),
+                  size: data.getInt32(28, true),
+                  offset: 32
+              };
+              return header;
+            }
+
+            var read_vertices = function(data, header) {
+                var vertices = [];
+
+                var precision = 1. / ((1 << (header.bits - 1)) - 1);
+                var h = {
+                    x: (header.ufr.x - header.bbl.x) * precision,
+                    y: (header.ufr.y - header.bbl.y) * precision,
+                    z: (header.ufr.z - header.bbl.z) * precision
+                };
+
+                var _read = ['getInt', header.bits].join('');
+                var qx = function(index) {
+                    return data[_read](header.offset + (3 * index + 0) * header.bytes, true);
+                };
+                var qy = function(index) {
+                    return data[_read](header.offset + (3 * index + 1) * header.bytes, true);
+                };
+                var qz = function(index) {
+                    return data[_read](header.offset + (3 * index + 2) * header.bytes, true);
+                };
+
+                var get_vertex = function(data, index) {
+                    return {
+                        x: header.bbl.x + (qx(index) * h.x),
+                        y: header.bbl.y + (qy(index) * h.y),
+                        z: header.bbl.z + (qz(index) * h.z)
+                    };
+                };
+
+                for(var i = 0; i < header.size ;  i ++) {
+                    vertices.push(get_vertex(data, i));
+                }
+
+                return vertices;
+            }
+
+            // files is a FileList of File objects.
+            // Read file content as as quantized position data
+            for (var i = 0, f; f = files[i]; i++) {
+              // FileReader
+              var reader = new FileReader();
+
+              // Closure to capture the file information.
+              reader.onload = (function(theFile) {
+                return function(e) {
+                  // Read binary content.
+                  var t, duration;
+                  if (window.performance !== undefined)
+                    t = performance.now();
+                  var data_view = new DataView(e.target.result);
+                  var header = read_header(data_view);
+                  var data = read_vertices(data_view, header);
+                  if (window.performance !== undefined) {
+                    duration = performance.now() - t;
+                    console.log("uncompressed " + data.length.toString() + " vertexes in " + duration.toString() + " ms");
+                  }
+                  // Display decompressed content
+                  var span_header = document.createElement('span');
+                  span_header.innerHTML = JSON.stringify(header);
+                  document.getElementById('comp_header').insertBefore(span_header, null);
+
+                  var span_data = document.createElement('span');
+                  span_data.innerHTML = JSON.stringify(data);
+                  document.getElementById('comp_data').insertBefore(span_data, null);
+                };
+              })(f);
+
+              // Read in the image file as an array buffer.
+              reader.readAsArrayBuffer(f);
+            }
+          }
+        
+          document.getElementById('files').addEventListener('change', handleFileSelect, false);
+        </script>
+
+    </body>
+</html>
+
+
+
+
