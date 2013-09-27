@@ -33,10 +33,9 @@ osg::Vec4 ColorStripVisitor::randomColor()
   return osg::Vec4(rand() * 1.f / RAND_MAX,
                    rand() * 1.f / RAND_MAX,
                    rand() * 1.f / RAND_MAX,
-                   1.0f);
+                   0.2f);
 }
 
-#include <iostream>
 void ColorStripVisitor::splitStrips()
 {
   for(std::map<osg::Geometry*, GeometryList>::iterator it_geom = _geometryStrips.begin() ;
@@ -49,7 +48,10 @@ void ColorStripVisitor::splitStrips()
     // 1. clone geometry for each strip
     for(size_t ii = 0 ; ii < geom->getNumPrimitiveSets() ; ++ ii)
     {
-      osg::Geometry* clone = dynamic_cast<osg::Geometry *>(geom->clone(osg::CopyOp::DEEP_COPY_ALL));
+      if(geom->getPrimitiveSet(ii)->getMode() != osg::PrimitiveSet::TRIANGLE_STRIP)
+        continue;
+
+      osg::Geometry* clone = dynamic_cast<osg::Geometry *>(geom->clone(osg::CopyOp::SHALLOW_COPY));
       osg::PrimitiveSet const* strip = clone->getPrimitiveSet(ii);
       clone->addPrimitiveSet(const_cast<osg::PrimitiveSet*>(strip));
       // Just keep last added strip
@@ -57,16 +59,12 @@ void ColorStripVisitor::splitStrips()
 
       // Set strip color
       osg::ref_ptr<osg::StateSet> stateset = clone->getOrCreateStateSet();
-      stateset->getTextureAttributeList().clear();
-      stateset->getTextureModeList().clear();
-      clone->getTexCoordArrayList().clear();
 
       // Creating a random color for clone
       osg::ref_ptr<osg::Material> mat(new osg::Material);
       mat->setShininess(osg::Material::FRONT, 96.f);
       mat->setDiffuse(osg::Material::FRONT, randomColor());
       stateset->setAttribute(mat.get());
-
 
       clones.push_back(clone);
     }
@@ -78,10 +76,12 @@ void ColorStripVisitor::splitStrips()
     {
       osg::Geometry* geom = it_geom->first;
       GeometryList clones = it_geom->second;
-      std::vector<osg::Node*> parents = geom->getParents();
-
-      for (unsigned int j = 0; j < parents.size(); j++)
+      if(clones.size())
       {
+        std::vector<osg::Node*> parents = geom->getParents();
+
+        for (unsigned int j = 0; j < parents.size(); j++)
+        {
           osg::Geode* parent = parents[j]->asGeode();
           if(parent)
           {
@@ -89,6 +89,7 @@ void ColorStripVisitor::splitStrips()
               parent->addDrawable(*clone);
             parent->removeDrawable(geom);
           }
+        }
       }
     }
   }
