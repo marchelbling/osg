@@ -5,6 +5,7 @@
 #include <osg/Image>
 #include <osg/Notify>
 #include <osg/Geode>
+#include <osg/Geometry>
 #include <osg/GL>
 #include <osg/Version>
 #include <osg/Endian>
@@ -18,10 +19,8 @@
 #include <osg/BlendColor>
 #include <osg/BlendFunc>
 #include <sstream>
-#include "TangentSpace"
 #include "JSON_Objects"
 
-#include "GeometryOperation"
 #include "Animation"
 #include "WriteVisitor"
 
@@ -35,7 +34,7 @@ public:
     typedef std::vector<osg::ref_ptr<osg::StateSet> > StateSetStack;
 
     std::ofstream _mergeBinaryFile;
-    
+
     std::map<osg::ref_ptr<osg::Object>, osg::ref_ptr<JSONObject> > _maps;
     std::vector<osg::ref_ptr<JSONObject> > _parents;
     osg::ref_ptr<JSONObject> _root;
@@ -67,7 +66,7 @@ public:
             osg::notify(osg::NOTICE) << "Use a merged binary file ";
             if (size/1024.0 < 1.0) {
                 osg::notify(osg::NOTICE) << size << " bytes" << std::endl;
-            } else if (size/(1024.0*1024.0) < 1.0) { 
+            } else if (size/(1024.0*1024.0) < 1.0) {
                 osg::notify(osg::NOTICE) << size/1024.0 << " kb" << std::endl;
             } else {
                 osg::notify(osg::NOTICE) << size/(1024.0*1024.0) << " mb" << std::endl;
@@ -135,11 +134,11 @@ public:
                 JSONObject* bam = new JSONObject;
                 bam->getMaps()["Animations"] = array;
 
-                
+
                 JSONObject* nodeCallbackObject = new JSONObject;
                 nodeCallbackObject->getMaps()["osgAnimation.BasicAnimationManager"] = bam;
                 updateCallbacks->getArray().push_back(nodeCallbackObject);
-                
+
                 for ( unsigned int i = 0; i < am->getAnimationList().size(); i++) {
                     osg::ref_ptr<JSONObject> jsonAnim = createJSONAnimation(am->getAnimationList()[i].get());
                     if (jsonAnim) {

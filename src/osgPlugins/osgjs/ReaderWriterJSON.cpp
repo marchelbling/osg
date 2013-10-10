@@ -25,13 +25,10 @@
 #include <sstream>
 #include <cassert>
 #include <map>
-#include "TangentSpace"
-#include "JSON_Objects"
 
-#include "GeometryOperation"
+#include "JSON_Objects"
 #include "Animation"
 #include "WriteVisitor"
-#include "UnIndexMeshVisitor"
 
 
 
@@ -39,40 +36,18 @@ using namespace osg;
 
 
 
-// the idea is to create true Geometry if skeleton with RigGeometry
-struct FakeUpdateVisitor : public osgUtil::UpdateVisitor
-{
-    FakeUpdateVisitor() {
-        setFrameStamp(new osg::FrameStamp());
-    }
-};
-
 class ReaderWriterJSON : public osgDB::ReaderWriter
 {
 public:
 
      struct OptionsStruct {
-         bool generateTangentSpace;
-         int tangentSpaceTextureUnit;
-         bool disableTriStrip;
-         bool disableMergeTriStrip;
          int resizeTextureUpToPowerOf2;
-         int triStripCacheSize;
-         bool useDrawArray;
-         bool enableWireframe;
          bool useExternalBinaryArray;
          bool mergeAllBinaryFiles;
          bool inlineImages;
 
          OptionsStruct() {
-             generateTangentSpace = false;
-             tangentSpaceTextureUnit = 0;
-             disableTriStrip = false;
-             disableMergeTriStrip = false;
              resizeTextureUpToPowerOf2 = 0;
-             triStripCacheSize = 16;
-             useDrawArray = false;
-             enableWireframe = false;
              useExternalBinaryArray = false;
              mergeAllBinaryFiles = false;
              inlineImages = false;
@@ -83,15 +58,7 @@ public:
     ReaderWriterJSON()
     {
         supportsExtension("osgjs","OpenSceneGraph Javascript implementation format");
-        supportsExtension("unindex","Unindex the geometry");
-        supportsOption("generateTangentSpace","Build tangent space to each geometry");
-        supportsOption("tangentSpaceTextureUnit=<unit>","Specify on wich texture unit normal map is");
-        supportsOption("triStripCacheSize=<int>","set the cache size when doing tristrip");
-        supportsOption("disableMergeTriStrip","disable the merge of all tristrip into one");
         supportsOption("resizeTextureUpToPowerOf2=<int>","Specify the maximum power of 2 allowed dimension for texture. Using 0 will disable the functionality and no image resizing will occur.");
-        supportsOption("disableTriStrip","disable generation of tristrip");
-        supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
-        supportsOption("enableWireframe","create a wireframe geometry for each triangles geometry");
         supportsOption("useExternalBinaryArray","create binary files for vertex arrays");
         supportsOption("mergeAllBinaryFiles","merge all binary files into one to avoid multi request on a server");
         supportsOption("inlineImages","insert base64 encoded images instead of referring to them");
@@ -135,37 +102,6 @@ public:
     {
         // process regular model
         osg::ref_ptr<osg::Node> model = osg::clone(&node);
-        //osgDB::writeNodeFile(*model, "cloned.osg");
-        FakeUpdateVisitor fakeUpdateVisitor;
-        model->accept(fakeUpdateVisitor);
-
-        GeometryWireframeVisitor wireframer;
-        if (options.enableWireframe) {
-            model->accept(wireframer);
-        }
-
-
-//        StatsVisitor sceneStats;
-//        model->accept(sceneStats);
-//        sceneStats.dump();
-
-        OpenGLESGeometryOptimizerVisitor visitor;
-
-        // generated in model when indexed
-        if (options.generateTangentSpace) {
-            visitor.setTexCoordChannelForTangentSpace(options.tangentSpaceTextureUnit);
-        }
-
-        visitor.setUseDrawArray(options.useDrawArray);
-        visitor.setTripStripCacheSize(options.triStripCacheSize);
-        visitor.setDisableTriStrip(options.disableTriStrip);
-        visitor.setDisableMergeTriStrip(options.disableMergeTriStrip);
-        model->accept(visitor);
-
-        if (!options.enableWireframe) {
-            osg::notify(osg::NOTICE) << "SceneNbTriangles:" << visitor._sceneNbTriangles << std::endl;
-            osg::notify(osg::NOTICE) << "SceneNbVertexes:" << visitor._sceneNbVertexes << std::endl;
-        }
 
         WriteVisitor writer;
         try {
@@ -213,26 +149,6 @@ public:
                     pre_equals = opt;
                 }
 
-                if (pre_equals == "useDrawArray")
-                {
-                    localOptions.useDrawArray = true;
-                }
-                if (pre_equals == "enableWireframe")
-                {
-                    localOptions.enableWireframe = true;
-                }
-                if (pre_equals == "disableMergeTriStrip")
-                {
-                    localOptions.disableMergeTriStrip = true;
-                }
-                if (pre_equals == "disableTriStrip")
-                {
-                    localOptions.disableTriStrip = true;
-                }
-                if (pre_equals == "generateTangentSpace")
-                {
-                    localOptions.generateTangentSpace = true;
-                }
                 if (pre_equals == "useExternalBinaryArray")
                 {
                     localOptions.useExternalBinaryArray = true;
@@ -250,12 +166,6 @@ public:
                 if (post_equals.length() > 0)
                 {
                     int value = atoi(post_equals.c_str());
-                    if (pre_equals == "tangentSpaceTextureUnit") {
-                        localOptions.tangentSpaceTextureUnit = value;
-                    }
-                    if (pre_equals == "triStripCacheSize") {
-                        localOptions.triStripCacheSize = value;
-                    }
                     if (pre_equals == "resizeTextureUpToPowerOf2") {
                         localOptions.resizeTextureUpToPowerOf2 = osg::Image::computeNearestPowerOfTwo(value);
                     }
@@ -264,8 +174,6 @@ public:
         }
         return localOptions;
     }
-protected:
-
 };
 
 osgDB::ReaderWriter::ReadResult ReaderWriterJSON::readNode(const std::string& file, const Options* options) const
@@ -282,13 +190,6 @@ osgDB::ReaderWriter::ReadResult ReaderWriterJSON::readNode(const std::string& fi
     osg::Node *node = osgDB::readNodeFile( fileName, options );
     if (!node)
         return ReadResult::FILE_NOT_HANDLED;
-
-
-    if (ext == "unindex") {
-        UnIndexMeshVisitor unindex;
-        node->accept(unindex);
-        return node;
-    }
 
     return ReadResult::FILE_NOT_HANDLED;
 }

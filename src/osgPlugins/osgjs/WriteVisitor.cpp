@@ -316,8 +316,8 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
     if (_maps.find(geom) != _maps.end())
         return _maps[geom]->getShadowObject();
 
-    if (needToSplit(*geom))
-        error();
+    //if (needToSplit(*geom))
+    //    error();
 
     osg::ref_ptr<JSONObject> json = new JSONNode;
     json->addUniqueID();
@@ -366,22 +366,17 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
             }
         }
     }
-    if (geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)) {
-        attributes->getMaps()["Tangent"] = createJSONBufferArray(geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX));
-        int nb = geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)->getNumElements();
-        if (nbVertexes != nb) {
-            osg::notify(osg::FATAL) << "Fatal nb tangent " << nb << " != " << nbVertexes << std::endl;
-            error();
-        }
-    }
-
-    if (geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX)) {
-        attributes->getMaps()["Bitangent"] = createJSONBufferArray(geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX));
-        int nb = geom->getVertexAttribArray(BITANGENT_ATTRIBUTE_INDEX)->getNumElements();
-        if (nbVertexes != nb) {
-            osg::notify(osg::FATAL) << "Fatal nb bitangent " << nb << " != " << nbVertexes << std::endl;
-            error();
-        }
+    size_t TANGENT_ATTRIBUTE_INDEX;
+    if(geom->getUserValue("TANGENT_ATTRIBUTE_INDEX", TANGENT_ATTRIBUTE_INDEX))
+    {
+      if (geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)) {
+          attributes->getMaps()["Tangent"] = createJSONBufferArray(geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX));
+          int nb = geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)->getNumElements();
+          if (nbVertexes != nb) {
+              osg::notify(osg::FATAL) << "Fatal nb tangent " << nb << " != " << nbVertexes << std::endl;
+              error();
+          }
+      }
     }
 
     json->getMaps()["VertexAttributeList"] = attributes;

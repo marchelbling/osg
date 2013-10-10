@@ -1,9 +1,9 @@
-/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson 
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson
  *
- * This application is open source and may be redistributed and/or modified   
+ * This application is open source and may be redistributed and/or modified
  * freely and without restriction, both in commercial and non commercial
  * applications, as long as this copyright notice is maintained.
- * 
+ *
  * This application is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -33,28 +33,27 @@ public:
     void apply(osg::Node& node);
 };
 
+
 class OpenGLESGeometryOptimizerVisitor : public osg::NodeVisitor
 {
 public:
 
-    OpenGLESGeometryOptimizerVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) , _disableTriStrip(false), _triStripCacheSize(16), _disableMergeTriStrip(false), _enableWireframe(false), _tangentUnit(0), _generateTangentSpace(false) {
-        
+    OpenGLESGeometryOptimizerVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) , _disableTriStrip(false), _triStripCacheSize(16), _disableMergeTriStrip(false), _tangentUnit(0), _generateTangentSpace(false) {
+
         _sceneNbTriangles = 0;
         _sceneNbVertexes = 0;
     }
 
     void apply(osg::Geode& node);
-    void applyWireframe(osg::Geode& node);
 
     void setUseDrawArray(bool s) { _useDrawArray = s; }
     void setTripStripCacheSize(unsigned int size) { _triStripCacheSize = size; }
-    void setTexCoordChannelForTangentSpace(int uv) { 
+    void setTexCoordChannelForTangentSpace(int uv) {
         _tangentUnit = uv;
         _generateTangentSpace = true;
     }
     void setDisableTriStrip(bool s) { _disableTriStrip = s; }
     void setDisableMergeTriStrip(bool s) { _disableMergeTriStrip = s; }
-    void setEnableWireframe(bool s) { _enableWireframe = s; }
 
     void computeStats(osg::Geode& node);
 
@@ -70,7 +69,7 @@ public:
             // compute nb triangles and vertexes
             for (unsigned int tr = 0; tr < geom.getPrimitiveSetList().size(); tr++) {
                 osg::PrimitiveSet* primitive = geom.getPrimitiveSetList()[tr];
-                if (primitive && 
+                if (primitive &&
                     primitive->getMode() != osg::PrimitiveSet::LINES_ADJACENCY &&
                     primitive->getMode() != osg::PrimitiveSet::LINE_STRIP_ADJACENCY &&
                     primitive->getMode() != osg::PrimitiveSet::PATCHES &&
@@ -99,10 +98,9 @@ protected:
     unsigned int _triStripCacheSize;
     bool _disableMergeTriStrip;
     bool _useDrawArray;
-    bool _enableWireframe;
 
     int _tangentUnit;
     bool _generateTangentSpace;
-    
+
 };
 #endif
