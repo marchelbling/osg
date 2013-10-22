@@ -1,4 +1,4 @@
-/*  -*-c++-*- 
+/*  -*-c++-*-
  *  Copyright (C) 2010 Cedric Pinson <cedric.pinson@plopbyte.net>
  */
 
@@ -6,18 +6,19 @@
 #define JSON_OBJECT
 
 #include <osg/Matrix>
-#include <map>
-#include <string>
-#include <vector>
-#include <algorithm>
 #include <osg/Array>
 #include <osg/Light>
 #include <osg/Notify>
 #include <osg/PrimitiveSet>
 
-#include <sstream>
+#include <map>
+#include <string>
+#include <vector>
+#include <algorithm>
+
 #include <fstream>
 #include <iostream>
+
 
 class WriteVisitor;
 
@@ -57,7 +58,7 @@ struct JSONObject : public JSONObjectBase
     void addChild(const std::string& type, JSONObject* child);
     virtual JSONArray* asArray() { return 0; }
     template<class T> JSONValue<T>* asValue() {
-        return dynamic_cast<JSONValue<T> * > ( this); 
+        return dynamic_cast<JSONValue<T> * > ( this);
     }
 
     JSONObject(const unsigned int id, const std::string& bufferName = "");
@@ -72,6 +73,18 @@ struct JSONObject : public JSONObjectBase
     std::string _bufferName;
     virtual void setBufferName(const std::string& name) { _bufferName = name; }
     std::string getBufferName() { return _bufferName; }
+    bool isVarintableIntegerBuffer(osg::Array const*) const;
+    void encodeArrayAsVarintBuffer(osg::Array const*, std::vector<uint8_t>&) const;
+    template<typename T>
+    void dumpVarintVector(std::vector<uint8_t>&, T const*, bool) const;
+    template<typename T>
+    void dumpVarintValue(std::vector<uint8_t>&, T const*, bool) const;
+    std::vector<uint8_t> varint_encoding(unsigned int value) const;
+
+    // see https://developers.google.com/protocol-buffers/docs/encoding?hl=fr&csw=1#types
+    inline unsigned int to_varint_unsigned(int const v) const
+    { return (v << 1) ^ (v >> ((sizeof(v) << 3) - 1)); }
+
 };
 
 JSONObject* createLight(osg::Light* light);
@@ -90,8 +103,7 @@ struct JSONArray : public JSONObject
 {
     typedef std::vector<osg::ref_ptr<JSONObject> > JSONList;
     JSONList _array;
-    
-    JSONArray(){}
+    JSONArray() {}
     virtual void write(std::ostream& str, WriteVisitor& visitor);
     JSONList& getArray() { return _array; }
     JSONArray* asArray() { return this; }
@@ -125,7 +137,7 @@ struct JSONVec2Array : public JSONVec3Array
     JSONVec2Array(const osg::Vec2&);
 };
 
-template <class T> 
+template <class T>
 struct JSONValue : public JSONObject
 {
     T _value;
@@ -211,14 +223,15 @@ struct JSONVertexArray : public JSONArray
 
     std::pair<unsigned int, unsigned int> writeMergeData(const osg::Array* array,
                                                          WriteVisitor &visitor,
-                                                         const std::string& filename);
+                                                         const std::string& filename,
+                                                         std::string& encoding);
     unsigned int writeData(const osg::Array* array, const std::string& filename) 
     {
         std::ofstream myfile;
         myfile.open(filename.c_str(), std::ios::binary );
         const char* b = static_cast<const char*>(array->getDataPointer());
         myfile.write(b, array->getTotalDataSize());
-        unsigned int fsize = myfile.tellp(); 
+        unsigned int fsize = myfile.tellp();
         myfile.close();
         return fsize;
     }
@@ -242,6 +255,7 @@ struct JSONVertexArray : public JSONArray
         }
         str << " ]," << std::endl;
     }
+
 
     void write(std::ostream& str, WriteVisitor& visitor);
 

@@ -322,7 +322,7 @@ JSONObject* WriteVisitor::createJSONDrawElements(osg::DrawArrays* drawArray, osg
     if(geom && _mergeAllBinaryFiles) {
         setBufferName(json, geom);
     }
-    return json; 
+    return json;
 }
 
 JSONObject* WriteVisitor::createJSONDrawArray(osg::DrawArrays* da, osg::Geometry* geom)
@@ -374,7 +374,7 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
     osg::ref_ptr<JSONObject> attributes = new JSONObject;
 
     int nbVertexes = geom->getVertexArray()->getNumElements();
-            
+
     if (geom->getVertexArray()) {
         attributes->getMaps()["Vertex"] = createJSONBufferArray(geom->getVertexArray(), geom);
     }
@@ -394,7 +394,7 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
             error();
         }
     }
-            
+
     std::stringstream ss;
     for ( int i = 0; i < 32; i++) {
         ss.str("");

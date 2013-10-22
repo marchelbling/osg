@@ -49,6 +49,7 @@ public:
     bool _useExternalBinaryArray;
     bool _mergeAllBinaryFiles;
     bool _inlineImages;
+    bool _varint;
     int _maxTextureDimension;
     std::vector<std::string> _specificBuffers;
     std::map<std::string, std::ofstream*> _buffers;
@@ -65,6 +66,7 @@ public:
         _useExternalBinaryArray = false;
         _inlineImages = false;
         _maxTextureDimension = 0;
+        _varint = false;
     }
 
     ~WriteVisitor() {
@@ -408,6 +410,7 @@ public:
     void useExternalBinaryArray(bool use) { _useExternalBinaryArray = use; }
     void mergeAllBinaryFiles(bool use) { _mergeAllBinaryFiles = use; }
     void inlineImages(bool use) { _inlineImages = use; }
+    void setVarint(bool use) { _varint = use; }
     void setMaxTextureDimension(int use) { _maxTextureDimension = use; }
     void addSpecificBuffer(const std::string& bufferFlag) { _specificBuffers.push_back(bufferFlag); }
 };

@@ -43,6 +43,7 @@ public:
          bool useExternalBinaryArray;
          bool mergeAllBinaryFiles;
          bool inlineImages;
+         bool varint;
          std::vector<std::string> useSpecificBuffer;
 
          OptionsStruct() {
@@ -50,6 +51,7 @@ public:
              useExternalBinaryArray = false;
              mergeAllBinaryFiles = false;
              inlineImages = false;
+             varint = false;
          }
     };
 
@@ -61,6 +63,7 @@ public:
         supportsOption("useExternalBinaryArray","create binary files for vertex arrays");
         supportsOption("mergeAllBinaryFiles","merge all binary files into one to avoid multi request on a server");
         supportsOption("inlineImages","insert base64 encoded images instead of referring to them");
+        supportsOption("varint","Use varint encoding to serialize integer buffers");
         supportsOption("useSpecificBuffer=uservalue1,uservalue2","uses specific buffers for unshared buffers attached to geometries having a specified user value");
     }
 
@@ -115,6 +118,7 @@ public:
             writer.mergeAllBinaryFiles(options.mergeAllBinaryFiles);
             writer.inlineImages(options.inlineImages);
             writer.setMaxTextureDimension(options.resizeTextureUpToPowerOf2);
+            writer.setVarint(options.varint);
             for(std::vector<std::string>::const_iterator specificBuffer = options.useSpecificBuffer.begin() ;
                 specificBuffer != options.useSpecificBuffer.end() ; ++ specificBuffer) {
                 writer.addSpecificBuffer(*specificBuffer);
@@ -169,6 +173,10 @@ public:
                 if (pre_equals == "inlineImages")
                 {
                     localOptions.inlineImages = true;
+                }
+                if (pre_equals == "varint")
+                {
+                    localOptions.varint = true;
                 }
 
                 if (pre_equals == "resizeTextureUpToPowerOf2" && post_equals.length() > 0)
