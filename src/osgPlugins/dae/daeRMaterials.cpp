@@ -28,6 +28,7 @@
 #include <osg/LightModel>
 #include <osgDB/Registry>
 #include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
 
 #include <sstream>
 
@@ -200,10 +201,13 @@ void daeReader::processBindMaterial( domBind_material *bm, domGeometry *geom, os
 // 0..* <extra>
 void    daeReader::processMaterial(osg::StateSet *ss, domMaterial *mat )
 {
+    if (!mat) 
+        return;
     _currentInstance_effect = mat->getInstance_effect();
-    if (mat && mat->getName()) {
+
+    if (mat->getName()) 
         ss->setName(mat->getName());
-    }
+    
     domEffect *effect = daeSafeCast< domEffect >( getElementFromURI( _currentInstance_effect->getUrl() ) );
     if (effect)
     {
@@ -306,7 +310,7 @@ void daeReader::processProfileCOMMON(osg::StateSet *ss, domProfile_COMMON *pc )
             }
             else if (strcmp(TechniqueArray[CurrentTechnique]->getProfile(), "FCOLLADA") == 0)
             {
-				OSG_WARN << "FCOLLADA but not doing anything (yet)" << std::endl;
+                OSG_WARN << "FCOLLADA but not doing anything (yet)" << std::endl;
                 const daeElementRefArray& ElementArray = TechniqueArray[CurrentTechnique]->getContents();
                 size_t NumberOfElements = ElementArray.getCount();
                 size_t CurrentElement;
@@ -315,37 +319,37 @@ void daeReader::processProfileCOMMON(osg::StateSet *ss, domProfile_COMMON *pc )
                     domAny* pAny = (domAny*)ElementArray[CurrentElement].cast();
                     if (strcmp(pAny->getElementName(), "bump") == 0)
                     {
-						/*
-						<technique profile="FCOLLADA">
-						  <bump>
-							<texture texture="___images_Material_-_Synthetic_-_Bump_JPG-sampler" texcoord="UVSET0">
-							  <extra>
-								<technique profile="MAX3D">
-								  <amount>3.2</amount>
-								</technique>
-							  </extra>
-							  <extra type="texture_offset">
-								<technique profile="ADOBE">
-								  <offsets>
-									<offsetu>0</offsetu>
-									<offsetv>0</offsetv>
-								  </offsets>
-								</technique>
-							  </extra>
-							</texture>
-						  </bump>
-						</technique>
-						*/
-						// TODO: fukking handle bump map here
-						// fukkingadding it to materials and metadata stateset...
-						OSG_WARN << "Bumping but not doing anything (yet)" << std::endl;
+                        /*
+                        <technique profile="FCOLLADA">
+                          <bump>
+                            <texture texture="___images_Material_-_Synthetic_-_Bump_JPG-sampler" texcoord="UVSET0">
+                              <extra>
+                                <technique profile="MAX3D">
+                                  <amount>3.2</amount>
+                                </technique>
+                              </extra>
+                              <extra type="texture_offset">
+                                <technique profile="ADOBE">
+                                  <offsets>
+                                    <offsetu>0</offsetu>
+                                    <offsetv>0</offsetv>
+                                  </offsets>
+                                </technique>
+                              </extra>
+                            </texture>
+                          </bump>
+                        </technique>
+                        */
+                        // TODO: fukking handle bump map here
+                        // fukkingadding it to materials and metadata stateset...
+                        OSG_WARN << "Bumping but not doing anything (yet)" << std::endl;
                     }
                 }
             }
             else
             {
-				OSG_WARN << "Unsupported Profile: " << TechniqueArray[CurrentTechnique]->getProfile() << std::endl;
-			}
+                OSG_WARN << "Unsupported Profile: " << TechniqueArray[CurrentTechnique]->getProfile() << std::endl;
+            }
         }
     }
 
@@ -777,10 +781,10 @@ bool daeReader::processColorOrTextureType(osg::StateSet* ss,
     }
     else
     {
-		//channel == ?
-		OSG_WARN << "unknown Channel for Texture File: " << cot->getTexture()->getTexture()  << std::endl;
-		OSG_WARN << "unknown Channel for Texture Type: " << cot->getTexture()->getTypeName()  << std::endl;
-	}
+        //channel == ?
+        OSG_WARN << "unknown Channel for Texture File: " << cot->getTexture()->getTexture()  << std::endl;
+        OSG_WARN << "unknown Channel for Texture Type: " << cot->getTexture()->getTypeName()  << std::endl;
+    }
     return retVal;
 }
 
@@ -1036,11 +1040,12 @@ osg::Image* daeReader::processImageTransparency(const osg::Image* srcImg, domFx_
     return transparentImage;
 }
 
-osg::Texture2D* daeReader::processTexture(
-    domCommon_color_or_texture_type_complexType::domTexture *tex,
-    const osg::StateSet* ss, TextureUnitUsage tuu,
+osg::Texture2D *daeReader::getTexture(
+    daeString &texName,
+    TextureUnitUsage tuu,
     domFx_opaque_enum opaque, float transparency)
 {
+    
     TextureParameters parameters;
     parameters.transparent = tuu == TRANSPARENCY_MAP_UNIT;
     parameters.opaque = opaque;
@@ -1051,7 +1056,7 @@ osg::Texture2D* daeReader::processTexture(
     domFx_surface_common *surface = NULL;
     domImage *dImg = NULL;
 
-    std::string target = std::string("./") + std::string(tex->getTexture());
+    std::string target = std::string("./") + std::string(texName);
     OSG_NOTICE<<"processTexture("<<target<<")"<<std::endl;
 
     daeSIDResolver res1( _currentEffect, target.c_str() );
@@ -1059,9 +1064,9 @@ osg::Texture2D* daeReader::processTexture(
 
     if (el == NULL )
     {
-        OSG_WARN << "Could not locate newparam for texture sampler2D \"" << tex->getTexture() <<
+        OSG_WARN << "Could not locate newparam for texture sampler2D \"" << texName <<
             "\". Checking if data does incorrect linking straight to the image" << std::endl;
-        _dae->getDatabase()->getElement( (daeElement**)&dImg, 0, tex->getTexture(), "image" );
+        _dae->getDatabase()->getElement( (daeElement**)&dImg, 0, texName, "image" );
         if (dImg != NULL )
         {
             OSG_WARN << "Direct image link found. Data is incorrect but will continue to load texture" << std::endl;
@@ -1168,17 +1173,21 @@ osg::Texture2D* daeReader::processTexture(
             _textureParamMap[parameters] = NULL;
             return NULL;
         }
-		
+        
         OSG_INFO<<"  processTexture(..) - readImage("<<parameters.filename<<")"<<std::endl;
 
         if (tuu == TRANSPARENCY_MAP_UNIT)
         {
             img = processImageTransparency(img.get(), opaque, transparency);
-			// TODO: fukk why exporters miss inline created maps.
-			// add filename
-			std::stringstream ss;
-			ss << "inline_osgconv_generated_" << parameters.filename;						
-			img->setFileName(parameters.filename);
+           //here we store original filename and the filepath so that metadata has a filename to show/share
+           std::stringstream ssTr;
+
+            std::string image_ext = osgDB::getFileExtension(parameters.filename);
+            std::string image_basename = osgDB::getNameLessExtension(parameters.filename);
+
+            ssTr << image_basename << ".inline_conv_generated." << image_ext;	
+            osg::notify(osg::NOTICE) << ssTr.str();	
+            img->setFileName(ssTr.str());
         }
 
         t2D = new osg::Texture2D(img.get());
@@ -1190,8 +1199,18 @@ osg::Texture2D* daeReader::processTexture(
         t2D->setBorderColor(parameters.border);
 
         _textureParamMap[parameters] = t2D;
+
     }
 
+    return t2D;
+}
+osg::Texture2D* daeReader::processTexture(
+    domCommon_color_or_texture_type_complexType::domTexture *tex,
+    const osg::StateSet* ss, TextureUnitUsage tuu,
+    domFx_opaque_enum opaque, float transparency)
+{
+    daeString texName = (daeString) tex->getTexture();
+    osg::Texture2D *t2D = getTexture(texName, tuu, opaque, transparency);
     _texCoordSetMap[TextureToCoordSetMap::key_type(ss, tuu)] = tex->getTexcoord();
 
     return t2D;

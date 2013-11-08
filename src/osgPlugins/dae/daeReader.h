@@ -264,8 +264,10 @@ private:
     bool processDocument( const std::string& );
     void clearCaches();
 
-	// attach metadata to node where we don't know how to osgize those data. (renderer or writer plugin might know)
-    void saveMaterialToStateSetMetaData(domMaterial*const material, osg::StateSet* stateset) const;
+    // attach metadata to node where we don't know how to osgize those data. (renderer or writer plugin might know)
+    void saveMaterialToStateSetMetaData(domMaterial*const material, osg::StateSet* stateset);
+    // convert to stateset metadata texture informations
+    void saveMetadataMap(osg::StateSet* stateset, const xsNCName &texPath, unsigned int unit_reserved, unsigned int unit, const std::string &prefix, const std::string &midfix);
 
     // If the node is a bone then it should be added before any other types of
     // node, this function makes that happen.
@@ -367,6 +369,7 @@ private:
     std::string processImagePath(const domImage*) const;
     osg::Image* processImageTransparency(const osg::Image*, domFx_opaque_enum, float transparency) const;
     osg::Texture2D* processTexture( domCommon_color_or_texture_type_complexType::domTexture *tex, const osg::StateSet*, TextureUnitUsage, domFx_opaque_enum = FX_OPAQUE_ENUM_A_ONE, float transparency = 1.0f);
+    osg::Texture2D *getTexture(daeString &texName, TextureUnitUsage tuu, domFx_opaque_enum = FX_OPAQUE_ENUM_A_ONE, float transparency = 1.0f);
     bool copyTextureCoordinateSet(const osg::StateSet* ss, const osg::Geometry* cachedGeometry, osg::Geometry* clonedGeometry, const domInstance_material* im, TextureUnitUsage tuu, unsigned int textureUnit);
 
     //scene objects
@@ -421,6 +424,7 @@ private:
     OldToNewIndexMap _oldToNewIndexMap;
 
     AuthoringTool _authoringTool;
+    std::string _authoringToolName;
     bool _invertTransparency;
     Options _pluginOptions;
 
