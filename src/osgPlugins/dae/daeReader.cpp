@@ -562,7 +562,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
     // TODO: check unit texture slot allocation
     unsigned int unit = 0;
 
-
+    const bool usePredefTexUnit = false;//_pluginOptions.usePredefinedTextureUnits;
 
     domInstance_effect * _currentInstance_effect = material->getInstance_effect();
     domEffect *effect = daeSafeCast< domEffect >( getElementFromURI( _currentInstance_effect->getUrl() ) );
@@ -597,7 +597,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (b->getAmbient()->getTexture())
                         {
                             saveMetadataMap(stateset, b->getAmbient()->getTexture()->getTexture(), 
-                                AMBIENT_OCCLUSION_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? AMBIENT_OCCLUSION_UNIT : unit++), "blinn", "ambient");
+                                AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "blinn", "ambient");
                         }
                     }
 
@@ -614,7 +614,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (b->getDiffuse()->getTexture())
                         {
                             saveMetadataMap(stateset, b->getDiffuse()->getTexture()->getTexture(), 
-                                MAIN_TEXTURE_UNIT, (_pluginOptions.usePredefinedTextureUnits ? MAIN_TEXTURE_UNIT : unit++), "blinn", "diffuse");
+                                MAIN_TEXTURE_UNIT, (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "blinn", "diffuse");
 
                         }
                     }
@@ -632,7 +632,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (b->getEmission()->getTexture())
                         {
                             saveMetadataMap(stateset, b->getEmission()->getTexture()->getTexture(), 
-                                ILLUMINATION_MAP_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? ILLUMINATION_MAP_UNIT : unit++), "blinn", "emission");                          
+                                ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "blinn", "emission");                          
                         }
                     }
 
@@ -649,7 +649,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (b->getSpecular()->getTexture())
                         {
                             saveMetadataMap(stateset, b->getSpecular()->getTexture()->getTexture(), 
-                                SPECULAR_MAP_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? SPECULAR_MAP_UNIT : unit++), "blinn", "specular");                           
+                                SPECULAR_MAP_UNIT,  (usePredefTexUnit ? SPECULAR_MAP_UNIT : unit++), "blinn", "specular");                           
 
                         }
                     }
@@ -708,7 +708,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (b->getTransparent()->getTexture()) 
                         {
                             saveMetadataMap(stateset, b->getTransparent()->getTexture()->getTexture(), 
-                                TRANSPARENCY_MAP_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? TRANSPARENCY_MAP_UNIT : unit++), "blinn", "transparency");
+                                TRANSPARENCY_MAP_UNIT,  (usePredefTexUnit ? TRANSPARENCY_MAP_UNIT : unit++), "blinn", "transparency");
                         }
                     }
                 }
@@ -729,7 +729,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (p->getAmbient()->getTexture())
                         {
                             saveMetadataMap(stateset, p->getAmbient()->getTexture()->getTexture(), 
-                                AMBIENT_OCCLUSION_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? AMBIENT_OCCLUSION_UNIT : unit++), "phong", "ambient");
+                                AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "phong", "ambient");
                         }
                     }
 
@@ -746,7 +746,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (p->getDiffuse()->getTexture())
                         {
                             saveMetadataMap(stateset, p->getDiffuse()->getTexture()->getTexture(), 
-                                MAIN_TEXTURE_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? MAIN_TEXTURE_UNIT : unit++), "phong", "diffuse");
+                                MAIN_TEXTURE_UNIT,  (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "phong", "diffuse");
                         }
                     }
 
@@ -763,7 +763,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (p->getEmission()->getTexture())
                         {
                             saveMetadataMap(stateset, p->getEmission()->getTexture()->getTexture(), 
-                                ILLUMINATION_MAP_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? ILLUMINATION_MAP_UNIT : unit++), "phong", "emission");
+                                ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "phong", "emission");
                         }
                     }
 
@@ -780,7 +780,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (p->getSpecular()->getTexture())
                         {
                             saveMetadataMap(stateset, p->getSpecular()->getTexture()->getTexture(), 
-                                SPECULAR_MAP_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? SPECULAR_MAP_UNIT : unit++), "phong", "specular");
+                                SPECULAR_MAP_UNIT,  (usePredefTexUnit ? SPECULAR_MAP_UNIT : unit++), "phong", "specular");
                         }
                     }
                     // specular exponent
@@ -838,7 +838,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (p->getTransparent()->getTexture()) 
                         {
                             saveMetadataMap(stateset, p->getTransparent()->getTexture()->getTexture(), 
-                                TRANSPARENCY_MAP_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? TRANSPARENCY_MAP_UNIT : unit++), "phong", "transparency");
+                                TRANSPARENCY_MAP_UNIT,  (usePredefTexUnit ? TRANSPARENCY_MAP_UNIT : unit++), "phong", "transparency");
                         }
                     }
                 }
@@ -859,7 +859,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (l->getAmbient()->getTexture())
                         {
                             saveMetadataMap(stateset, l->getAmbient()->getTexture()->getTexture(), 
-                                AMBIENT_OCCLUSION_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? AMBIENT_OCCLUSION_UNIT : unit++), "lambert", "ambient");
+                                AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "lambert", "ambient");
                         }
                     }
 
@@ -876,7 +876,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (l->getDiffuse()->getTexture())
                         {
                             saveMetadataMap(stateset, l->getDiffuse()->getTexture()->getTexture(), 
-                                MAIN_TEXTURE_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? MAIN_TEXTURE_UNIT : unit++), "lambert", "diffuse");
+                                MAIN_TEXTURE_UNIT,  (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "lambert", "diffuse");
                         }
                     }
 
@@ -893,7 +893,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (l->getEmission()->getTexture())
                         {
                             saveMetadataMap(stateset, l->getEmission()->getTexture()->getTexture(), 
-                                ILLUMINATION_MAP_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? ILLUMINATION_MAP_UNIT : unit++), "lambert", "emission");
+                                ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "lambert", "emission");
                         }
                     }
 
@@ -943,7 +943,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                         if (l->getTransparent()->getTexture()) 
                         {
                             saveMetadataMap(stateset, l->getTransparent()->getTexture()->getTexture(), 
-                                TRANSPARENCY_MAP_UNIT,  (_pluginOptions.usePredefinedTextureUnits ? TRANSPARENCY_MAP_UNIT : unit++), "lambert", "transparency");
+                                TRANSPARENCY_MAP_UNIT,  (usePredefTexUnit ? TRANSPARENCY_MAP_UNIT : unit++), "lambert", "transparency");
                         }
                     }
                 }
@@ -1011,7 +1011,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                                         {
                                             std::string texCoord = childTexture->getAttribute( "texcoord" );
 
-                                            unsigned int texCoordUnit = _pluginOptions.usePredefinedTextureUnits ? BUMP_MAP_UNIT : unit++;
+                                            unsigned int texCoordUnit = usePredefTexUnit ? BUMP_MAP_UNIT : unit++;
                                             _texCoordSetMap[TextureToCoordSetMap::key_type(stateset, BUMP_MAP_UNIT)] = texCoordUnit;
                                         
                                             stateset->setTextureAttributeAndModes(BUMP_MAP_UNIT, tex);
@@ -1061,7 +1061,7 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                                         if (tex)
                                         {
                                             std::string texCoord = childTexture->getAttribute( "texcoord" );
-                                            unsigned int texCoordUnit = _pluginOptions.usePredefinedTextureUnits ? IMAGE_BASE_LIGHT_MAP_UNIT : unit++;
+                                            unsigned int texCoordUnit = usePredefTexUnit ? IMAGE_BASE_LIGHT_MAP_UNIT : unit++;
                                             _texCoordSetMap[TextureToCoordSetMap::key_type(stateset, IMAGE_BASE_LIGHT_MAP_UNIT)] = texCoordUnit;
                                         
                                             stateset->setTextureAttributeAndModes(IMAGE_BASE_LIGHT_MAP_UNIT, tex);
