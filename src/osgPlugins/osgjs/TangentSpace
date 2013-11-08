@@ -27,10 +27,22 @@ public:
         }
     }
 
-    void apply(osg::Drawable& drw) {
+    void apply(osg::Drawable& drw) {        
         osg::Geometry* geom = dynamic_cast<osg::Geometry*>(&drw);
-        if (!geom->getTexCoordArray(_textureUnit))
-            return;
+        if (!geom->getTexCoordArray(_textureUnit)){
+            int texUnit = 0;
+            bool found = false;
+            while(texUnit < 32){
+                if (_textureUnit != texUnit && geom->getTexCoordArray(texUnit)){
+                    _textureUnit = texUnit;
+                    found = true;
+                    break;
+                } 
+                texUnit++;
+            }
+            if (!found)
+                return;
+        }
         // already processed
         if (_geometryProcessed.find(geom) != _geometryProcessed.end()) {
             return;
