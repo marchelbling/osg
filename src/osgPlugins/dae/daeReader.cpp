@@ -1,24 +1,35 @@
 /*
- * Copyright 2006 Sony Computer Entertainment Inc.
- *
- * Licensed under the SCEA Shared Source License, Version 1.0 (the "License"); you may not use this
- * file except in compliance with the License. You may obtain a copy of the License at:
- * http://research.scea.com/scea_shared_source_license.html
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
- * implied. See the License for the specific language governing permissions and limitations under the
- * License.
- */
+* Copyright 2006 Sony Computer Entertainment Inc.
+*
+* Licensed under the SCEA Shared Source License, Version 1.0 (the "License"); you may not use this
+* file except in compliance with the License. You may obtain a copy of the License at:
+* http://research.scea.com/scea_shared_source_license.html
+*
+* Unless required by applicable law or agreed to in writing, software distributed under the License
+* is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+* implied. See the License for the specific language governing permissions and limitations under the
+* License.
+*/
 
 #include "daeReader.h"
+
 #include <dae.h>
 #include <dae/domAny.h>
 #include <dom/domCOLLADA.h>
 #include <dom/domInstanceWithExtra.h>
+#include <dom/domProfile_COMMON.h>
 #include <dom/domConstants.h>
+
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
+#include <osg/UserDataContainer>
+#include <osg/ValueObject>
+
+#include <osg/BlendColor>
+#include <osg/BlendFunc>
+#include <osg/Texture2D>
+#include <osg/TexEnv>
+#include <osg/LightModel>
 
 using namespace osgDAE;
 
@@ -31,19 +42,19 @@ daeReader::Options::Options() :
 }
 
 daeReader::daeReader(DAE *dae_, const Options * pluginOptions) :
-                  _dae(dae_),
-                  _rootNode(NULL),
-                  _document(NULL),
-                  _visualScene(NULL),
-                  _numlights(0),
-                  _currentInstance_effect(NULL),
-                  _currentEffect(NULL),
-                  _authoringTool(UNKNOWN),
-                  _invertTransparency(false),
-                  _pluginOptions(pluginOptions ? *pluginOptions : Options()),
-                  _assetUnitName("meter"),
-                  _assetUnitMeter(1.0),
-                  _assetUp_axis(UPAXISTYPE_Y_UP)
+    _dae(dae_),
+    _rootNode(NULL),
+    _document(NULL),
+    _visualScene(NULL),
+    _numlights(0),
+    _currentInstance_effect(NULL),
+    _currentEffect(NULL),
+    _authoringTool(UNKNOWN),
+    _invertTransparency(false),
+    _pluginOptions(pluginOptions ? *pluginOptions : Options()),
+    _assetUnitName("meter"),
+    _assetUnitMeter(1.0),
+    _assetUp_axis(UPAXISTYPE_Y_UP)
 {
 }
 
@@ -86,8 +97,10 @@ bool daeReader::processDocument( const std::string& fileURI)
                 const char szSketchup[] = "Google SketchUp";
                 const char szFbx[] = "FBX";
                 const char szMaya[] = "Maya";
+                const char szPhotoshop[] = "Adobe Photoshop";
 
                 xsString Tool = ContributorArray[CurrentContributor]->getAuthoring_tool()->getValue();
+                _authoringToolName = Tool;
 
                 if (strncmp(Tool, szBlender, strlen(szBlender)) == 0)
                     _authoringTool = BLENDER;
@@ -99,6 +112,8 @@ bool daeReader::processDocument( const std::string& fileURI)
                     _authoringTool = GOOGLE_SKETCHUP;
                 else if (strncmp(Tool, szMaya, strlen(szMaya)) == 0)
                     _authoringTool = MAYA;
+                else if (strncmp(Tool, szPhotoshop, strlen(szPhotoshop)) == 0)
+                    _authoringTool = ADOBE_PHOTOSHOP;
             }
         }
         if (_document->getAsset()->getUnit())
@@ -380,7 +395,35 @@ osg::Group* daeReader::processVisualScene( domVisual_scene *scene )
                 addChild(retVal, node);
             }
         }
+        // once all material and stateset collected.
+        {
+            domMaterialStateSetMap::iterator iter = _materialMap.begin();
+            while (iter != _materialMap.end() )
+            {
+                // Reuse material
+                osg::StateSet* ss = iter->second.get();
+                domMaterial*const dm = iter->first;
+                saveMaterialToStateSetMetaData(dm, ss);
 
+                {
+                    const domExtra_Array& ExtraArray = dm->getExtra_array();
+                    size_t NumberOfExtras = ExtraArray.getCount();
+                    size_t CurrentExtra;
+                    for (CurrentExtra = 0; CurrentExtra < NumberOfExtras; CurrentExtra++)
+                    {
+                        const domTechnique_Array& TechniqueArray = ExtraArray[CurrentExtra]->getTechnique_array();
+                        size_t NumberOfTechniques = TechniqueArray.getCount();
+                        size_t CurrentTechnique;
+                        for (CurrentTechnique = 0; CurrentTechnique < NumberOfTechniques; CurrentTechnique++)
+                        {
+                            OSG_WARN << "Unsupported Profile: " << TechniqueArray[CurrentTechnique]->getProfile() << std::endl;
+                        }
+                    }
+                }
+
+                ++iter;
+            }
+        }
         processSkins();
 
         if (retVal->getName().empty())
@@ -400,6 +443,670 @@ osg::Group* daeReader::processVisualScene( domVisual_scene *scene )
     return retVal;
 }
 
+//TODO: remove useful debug code
+void printDomAny( domAny *anyElement, unsigned int indent = 0 )
+{
+    char *indentStr = new char[ indent + 1 ];
+    indentStr[ 0 ] = '\0';
+    for( unsigned int i = 0; i < indent; ++i )
+    {
+        strcat( indentStr, "\t" );
+    }
+    osg::notify(osg::NOTICE) << indentStr << "Element: " << anyElement->getElementName() <<  std::endl;
+    unsigned int numAttrs = anyElement->getAttributeCount();
+    for ( unsigned int currAttr = 0; currAttr < numAttrs; ++currAttr )
+    {
+        osg::notify(osg::NOTICE) << indentStr << "\tAttribute: "<< anyElement->getAttributeName( currAttr ) << " has value: " << anyElement->getAttributeValue( currAttr )  << std::endl;
+    }
+    unsigned int numChildren = anyElement->getContents().getCount();
+    for ( unsigned int currChild = 0; currChild < numChildren; ++currChild )
+    {
+        if ( anyElement->getContents()[currChild]->getElementType() == COLLADA_TYPE::ANY )
+        {
+            domAny *child = (domAny*)(daeElement*)anyElement->getContents()[currChild];
+            printDomAny( child );
+        }
+    }
+    if ( anyElement->getValue() != NULL )
+    {
+        osg::notify(osg::NOTICE) <<  indentStr << "Value: " <<  anyElement->getValue()   << std::endl;
+    }
+    delete []indentStr;
+}
+
+//TODO: find a way to list texture not used but listed in collada.
+// technique texture gives a "sampler"
+// "sampler" links to  a "surface" 
+// "surface" links to  a "init_from" image
+// "image" links to  a "init_from"  texture file path
+void getSamplerSource(daeDatabase* database, std::string &samplerId, std::string &textureId) 
+{
+    domElement* param;
+    unsigned int count = database->getElementCount(NULL, "init_from", NULL);
+    for ( unsigned int imageIdx = 0; imageIdx < count; ++imageIdx )
+    {
+        daeInt error = database->getElement((daeElement**)&param, imageIdx, NULL, "init_from", NULL);
+        domElement* surfaceEl = param->getParentElement();
+        std::string sid = surfaceEl->getParentElement()->getAttribute("sid");
+        if ( strcmp( sid.c_str(), samplerId.c_str() ) == 0 )
+        {
+            //for ( unsigned int imageChildIdx = 0; imageChildIdx < param->getChildren().getCount(); ++imageChildIdx )
+            {
+
+               // daeElement * el = param->getChildren()[imageChildIdx];
+               // if ( strcmp( el->getTypeName(), "init_from" ) == 0 )
+                {
+                    //el->getTypeName();
+                    std::string path = param->getCharData();
+                    osg::notify(osg::NOTICE) <<   "Image Path: " <<  path   << std::endl;
+                }
+            }
+
+            //texturePath = 
+        }
+    }
+}
+void getTexturePath(daeDatabase* database, std::string &textureId, std::string &texturePath) 
+{
+    std::string samplerId;
+    getSamplerSource(database, textureId, samplerId);
+    domLibrary_images* images;
+      daeInt error = database->getElement((daeElement**)&images, 0, NULL, COLLADA_TYPE_LIBRARY_IMAGES, NULL);
+    for ( unsigned int imageIdx = 0; imageIdx < images->getImage_array().getCount(); ++imageIdx )
+    {
+        domImage *image = images->getImage_array()[imageIdx];
+        if ( strcmp( image->getName(), textureId.c_str() ) == 0 )
+        {
+            for ( unsigned int imageChildIdx = 0; imageChildIdx < image->getChildren().getCount(); ++imageChildIdx )
+            {
+
+                daeElement * el = image->getChildren()[imageChildIdx];
+                if ( strcmp( el->getTypeName(), "init_from" ) == 0 )
+                {
+                    el->getTypeName();
+                    std::string path = el->getCharData();
+                    osg::notify(osg::NOTICE) <<   "Image Path: " <<  path   << std::endl;
+                }
+            }
+
+            //texturePath = 
+        }
+    }
+}
+void daeReader::saveMetadataMap(osg::StateSet* stateset, const xsNCName &texPath, unsigned int unit_reserved, unsigned int unit, const std::string &prefix, const std::string &midfix)
+{    
+    daeString texName = daeString(texPath);
+    osg::Texture2D* tex =  getTexture(texName, (TextureUnitUsage) unit_reserved);
+                                        
+    if (tex)
+    {
+        std::stringstream ss;
+        std::stringstream ssMeta;
+
+        ss << unit;
+        ssMeta << prefix << "_" << midfix << "_" << "unit";
+        stateset->setUserValue(ssMeta.str(), ss.str());
+        ssMeta.str("");
+        ssMeta << prefix << "_" << midfix << "_" << "map";
+        stateset->setUserValue(ssMeta.str(),  tex->getImage()->getFileName());
+    }
+}
+//TODO: fukk everything should og into daeReader::processProfileCOMMON
+// but that means death by merging&patching update with master/main osg...
+void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::StateSet* stateset) 
+{
+    std::string s = "collada";
+    stateset->setUserValue("source", s);    
+    stateset->setUserValue("source_tool", _authoringToolName);
+
+    // TODO: check unit texture slot allocation
+    unsigned int unit = 0;
+
+    const bool usePredefTexUnit = false;//_pluginOptions.usePredefinedTextureUnits;
+
+    domInstance_effect * _currentInstance_effect = material->getInstance_effect();
+    domEffect *effect = daeSafeCast< domEffect >( getElementFromURI( _currentInstance_effect->getUrl() ) );
+    if (effect)
+    {
+        domFx_profile_abstract_Array &arr = effect->getFx_profile_abstract_array();
+        for ( size_t i = 0; i < arr.getCount(); i++ )
+        {
+            domFx_profile_abstract *pa = daeSafeCast< domFx_profile_abstract > ( arr[i] );
+            domProfile_COMMON *pc = daeSafeCast< domProfile_COMMON >( arr[i] );
+            if (pc != NULL )
+            {
+                domProfile_COMMON::domTechnique *teq = pc->getTechnique();
+
+                /*
+                domProfile_COMMON::domTechnique::domConstant *c = teq->getConstant();
+                */
+                domProfile_COMMON::domTechnique::domBlinn *b = teq->getBlinn();				
+                if (b)
+                {
+
+                    // ambient
+                    if(b->getAmbient())
+                    {
+                        if(b->getAmbient()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = b->getAmbient()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("blinn_ambient_color", ss.str());
+                        }
+                        if (b->getAmbient()->getTexture())
+                        {
+                            saveMetadataMap(stateset, b->getAmbient()->getTexture()->getTexture(), 
+                                AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "blinn", "ambient");
+                        }
+                    }
+
+                    // diffuse
+                    if(b->getDiffuse())
+                    {
+                        if(b->getDiffuse()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = b->getDiffuse()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("blinn_diffuse_color", ss.str());
+                        }
+                        if (b->getDiffuse()->getTexture())
+                        {
+                            saveMetadataMap(stateset, b->getDiffuse()->getTexture()->getTexture(), 
+                                MAIN_TEXTURE_UNIT, (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "blinn", "diffuse");
+
+                        }
+                    }
+
+                    // emissive
+                    if(b->getEmission())
+                    {
+                        if(b->getEmission()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = b->getEmission()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("blinn_emission_color", ss.str());
+                        }
+                        if (b->getEmission()->getTexture())
+                        {
+                            saveMetadataMap(stateset, b->getEmission()->getTexture()->getTexture(), 
+                                ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "blinn", "emission");                          
+                        }
+                    }
+
+                    // specular
+                    if(b->getSpecular())
+                    {
+                        if(b->getSpecular()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = b->getSpecular()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("blinn_specular_color", ss.str());
+                        }
+                        if (b->getSpecular()->getTexture())
+                        {
+                            saveMetadataMap(stateset, b->getSpecular()->getTexture()->getTexture(), 
+                                SPECULAR_MAP_UNIT,  (usePredefTexUnit ? SPECULAR_MAP_UNIT : unit++), "blinn", "specular");                           
+
+                        }
+                    }
+                    // specular exponent
+                    if(b->getShininess())
+                    {
+                        if(b->getShininess() != NULL && b->getShininess()->getFloat() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat f = b->getShininess()->getFloat()->getValue();
+                            ss << f ;
+                            stateset->setUserValue("blinn_shininess_amount", ss.str());
+                        }
+                    }
+
+                    // Reflectivity
+                    if(b->getReflective())
+                    {
+                        if(b->getReflective()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = b->getReflective()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("blinn_reflective_color", ss.str());
+                        }
+                        if (b->getReflective()->getTexture())
+                        {
+                                // REFLECTIVE_MAP_UNIT ?
+                            saveMetadataMap(stateset, b->getReflective()->getTexture()->getTexture(), 
+                                unit, unit, "blinn", "reflective"); 
+                            unit++;
+                        }
+                    }
+                    if(b->getReflectivity())
+                    {
+                        if(b->getReflectivity() != NULL && b->getReflectivity()->getFloat() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat f = b->getReflectivity()->getFloat()->getValue();
+                            ss << f ;
+                            stateset->setUserValue("blinn_reflective_amount", ss.str());
+                        }
+                    }
+
+                    // translucency
+                    // TODO: read furthermore  "Determining Transparency" in 1.4.1 spec				
+                    if(b->getTransparent())
+                    {
+                        if(b->getTransparent() != NULL && b->getTransparency() != NULL && b->getTransparency()->getFloat() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat f = b->getTransparency()->getFloat()->getValue();
+                            ss << f;
+                            stateset->setUserValue("blinn_transparency_amount", ss.str());
+                        }
+                        if (b->getTransparent()->getTexture()) 
+                        {
+                            saveMetadataMap(stateset, b->getTransparent()->getTexture()->getTexture(), 
+                                TRANSPARENCY_MAP_UNIT,  (usePredefTexUnit ? TRANSPARENCY_MAP_UNIT : unit++), "blinn", "transparency");
+                        }
+                    }
+                }
+                domProfile_COMMON::domTechnique::domPhong *p = teq->getPhong();			
+                if (p)
+                {
+                    unit = 0;
+                    // ambient
+                    if(p->getAmbient())
+                    {
+                        if(p->getAmbient()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = p->getAmbient()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("phong_ambient_color", ss.str());
+                        }
+                        if (p->getAmbient()->getTexture())
+                        {
+                            saveMetadataMap(stateset, p->getAmbient()->getTexture()->getTexture(), 
+                                AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "phong", "ambient");
+                        }
+                    }
+
+                    // diffuse
+                    if(p->getDiffuse())
+                    {
+                        if(p->getDiffuse()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = p->getDiffuse()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("phong_diffuse_color", ss.str());
+                        }
+                        if (p->getDiffuse()->getTexture())
+                        {
+                            saveMetadataMap(stateset, p->getDiffuse()->getTexture()->getTexture(), 
+                                MAIN_TEXTURE_UNIT,  (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "phong", "diffuse");
+                        }
+                    }
+
+                    // emissive
+                    if(p->getEmission())
+                    {
+                        if(p->getEmission()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = p->getEmission()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("phong_emission_color", ss.str());
+                        }
+                        if (p->getEmission()->getTexture())
+                        {
+                            saveMetadataMap(stateset, p->getEmission()->getTexture()->getTexture(), 
+                                ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "phong", "emission");
+                        }
+                    }
+
+                    // specular
+                    if(p->getSpecular())
+                    {
+                        if(p->getSpecular()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = p->getSpecular()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("phong_specular_color", ss.str());
+                        }
+                        if (p->getSpecular()->getTexture())
+                        {
+                            saveMetadataMap(stateset, p->getSpecular()->getTexture()->getTexture(), 
+                                SPECULAR_MAP_UNIT,  (usePredefTexUnit ? SPECULAR_MAP_UNIT : unit++), "phong", "specular");
+                        }
+                    }
+                    // specular exponent
+                    if(p->getShininess())
+                    {
+                        if(p->getShininess() != NULL && p->getShininess()->getFloat() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat f = p->getShininess()->getFloat()->getValue();
+                            ss << f ;
+                            stateset->setUserValue("phong_shininess_amount", ss.str());
+                        }
+                    }
+
+                    // Reflectivity
+                    if(p->getReflective())
+                    {
+                        if(p->getReflective()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = p->getReflective()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("phong_reflective_color", ss.str());
+                        }
+                        if (p->getReflective()->getTexture())
+                        {
+                            // REFLECTIVE_MAP_UNIT ?
+                            saveMetadataMap(stateset, p->getReflective()->getTexture()->getTexture(), 
+                                unit,  unit, "phong", "reflective");
+                            unit++;
+                        }
+                    }
+                    if(p->getReflectivity())
+                    {
+                        if(p->getReflectivity() != NULL && p->getReflectivity()->getFloat() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat f = p->getReflectivity()->getFloat()->getValue();
+                            ss << f ;
+                            stateset->setUserValue("phong_reflective_amount", ss.str());
+                        }
+                    }
+
+                    // translucency
+                    // TODO: read furthermore  "Determining Transparency" in 1.4.1 spec				
+                    if(p->getTransparent())
+                    {
+                        if(p->getTransparent() != NULL && p->getTransparency() != NULL && p->getTransparency()->getFloat() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat f = p->getTransparency()->getFloat()->getValue();
+                            ss << f;
+                            stateset->setUserValue("phong_transparency_amount", ss.str());
+                        }
+                        if (p->getTransparent()->getTexture()) 
+                        {
+                            saveMetadataMap(stateset, p->getTransparent()->getTexture()->getTexture(), 
+                                TRANSPARENCY_MAP_UNIT,  (usePredefTexUnit ? TRANSPARENCY_MAP_UNIT : unit++), "phong", "transparency");
+                        }
+                    }
+                }
+                domProfile_COMMON::domTechnique::domLambert *l = teq->getLambert();			
+                if (l)
+                {
+                    unit = 0;
+                    // ambient
+                    if(l->getAmbient())
+                    {
+                        if(l->getAmbient()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = l->getAmbient()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("lambert_ambient_color", ss.str());
+                        }
+                        if (l->getAmbient()->getTexture())
+                        {
+                            saveMetadataMap(stateset, l->getAmbient()->getTexture()->getTexture(), 
+                                AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "lambert", "ambient");
+                        }
+                    }
+
+                    // diffuse
+                    if(l->getDiffuse())
+                    {
+                        if(l->getDiffuse()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = l->getDiffuse()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("lambert_diffuse_color", ss.str());
+                        }
+                        if (l->getDiffuse()->getTexture())
+                        {
+                            saveMetadataMap(stateset, l->getDiffuse()->getTexture()->getTexture(), 
+                                MAIN_TEXTURE_UNIT,  (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "lambert", "diffuse");
+                        }
+                    }
+
+                    // emissive
+                    if(l->getEmission())
+                    {
+                        if(l->getEmission()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = l->getEmission()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("lambert_emission_color", ss.str());
+                        }
+                        if (l->getEmission()->getTexture())
+                        {
+                            saveMetadataMap(stateset, l->getEmission()->getTexture()->getTexture(), 
+                                ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "lambert", "emission");
+                        }
+                    }
+
+
+                    // Reflectivity
+                    if(l->getReflective())
+                    {
+                        if(l->getReflective()->getColor() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat4 &f4 = l->getReflective()->getColor()->getValue();
+                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                            stateset->setUserValue("lambert_reflective_color", ss.str());
+                        }
+                        if (l->getReflective()->getTexture())
+                        {
+                            std::stringstream ss;
+                            // REFLECTIVE_MAP_UNIT ?
+                            saveMetadataMap(stateset, l->getReflective()->getTexture()->getTexture(), 
+                                unit,  unit, "lambert", "reflective");
+                            //
+                            unit++;
+                        }
+                    }
+                    if(l->getReflectivity())
+                    {
+                        if(l->getReflectivity() != NULL && l->getReflectivity()->getFloat() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat f = l->getReflectivity()->getFloat()->getValue();
+                            ss << f ;
+                            stateset->setUserValue("lambert_reflective_amount", ss.str());
+                        }
+                    }
+
+                    // translucency
+                    // TODO: read furthermore  "Determining Transparency" in 1.4.1 spec				
+                    if(l->getTransparent())
+                    {
+                        if(l->getTransparent() != NULL && l->getTransparency() != NULL && l->getTransparency()->getFloat() != NULL )
+                        {
+                            std::stringstream ss;
+                            domFloat f = l->getTransparency()->getFloat()->getValue();
+                            ss << f;
+                            stateset->setUserValue("lambert_transparency_amount", ss.str());
+                        }
+                        if (l->getTransparent()->getTexture()) 
+                        {
+                            saveMetadataMap(stateset, l->getTransparent()->getTexture()->getTexture(), 
+                                TRANSPARENCY_MAP_UNIT,  (usePredefTexUnit ? TRANSPARENCY_MAP_UNIT : unit++), "lambert", "transparency");
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+
+    if (daeDatabase* database = _dae->getDatabase())
+    {
+        domExtra *extra;	
+        unsigned int numExtra = database->getElementCount(NULL, COLLADA_TYPE_EXTRA, NULL);
+        for ( unsigned int el_number = 0; el_number < numExtra; ++el_number )
+        {
+            daeInt error = database->getElement((daeElement**)&extra, el_number, NULL, COLLADA_TYPE_EXTRA, NULL);
+
+            daeElement *parentEl = extra->getParentElement();
+
+            //osg::notify(osg::NOTICE) << "=> Parent Name: " << parentEl->getTypeName() << std::endl;
+            //if ( strcmp( parentEl->getTypeName(), "technique" ) == 0 )
+            //    osg::notify(osg::NOTICE) << "=> Parent sid: " << parentEl->getAttribute("sid") << std::endl;
+
+            //
+            unsigned int numChildrenTeq = extra->getTechnique_array().getCount();
+            for( unsigned int currChildTeq = 0; currChildTeq < numChildrenTeq; ++currChildTeq )
+            {
+                domTechnique *teq = extra->getTechnique_array()[currChildTeq];
+
+                //osg::notify(osg::NOTICE) << "=> Profile: " << teq->getProfile() << std::endl;
+
+                //if ( strcmp( teq->getProfile(), "custom" ) == 0 )
+                {
+                    unsigned int numChildren = teq->getContents().getCount();
+                    for( unsigned int currChild = 0; currChild < numChildren; ++currChild )
+                    {
+                        if ( teq->getContents()[currChild]->getElementType() == COLLADA_TYPE::ANY )
+                        {
+                            domAny *child = (domAny*)(daeElement*)teq->getContents()[currChild];
+                            if ( strcmp( child->getElementName(), "bump" ) == 0 )
+                            {
+                                //osg::notify(osg::NOTICE) <<  "BUMPMAP: " << child->getElementName() <<  std::endl;
+                                const daeElementRefArray& arrRef = child->getContents();
+                                unsigned int numChildren = arrRef.getCount();
+                                for ( unsigned int currChildBump = 0; currChildBump < numChildren; ++currChildBump )
+                                {
+                                    if ( strcmp( child->getContents()[currChildBump]->getElementName(), "texture" ) == 0 )
+                                    {
+                                        daeElementRef elRef = arrRef[currChildBump];
+                                        domAny *childTexture = (domAny*)(daeElement*)elRef;
+                                        domAny* pAny = (domAny*)elRef.cast();
+                                        domCommon_color_or_texture_type_complexType::domTexture *childDomTex = daeSafeCast< domCommon_color_or_texture_type_complexType::domTexture > (elRef.cast());
+
+                                        /*
+                                        unsigned int numAttrs = childTexture->getAttributeCount();for ( unsigned int currAttr = 0; currAttr < numAttrs; ++currAttr )
+                                        {
+                                            osg::notify(osg::NOTICE) << "\tAttribute: "<< childTexture->getAttributeName( currAttr ) << " has value: " << childTexture->getAttributeValue( currAttr )  << std::endl;
+                                        }*/
+
+
+                                        std::stringstream ss;
+                                        std::string texPath = childTexture->getAttribute( "texture" );
+                                        daeString texName = daeString(texPath.c_str());
+                                        osg::Texture2D* tex =  getTexture(texName, BUMP_MAP_UNIT);
+                                        if (tex)
+                                        {
+                                            std::string texCoord = childTexture->getAttribute( "texcoord" );
+
+                                            unsigned int texCoordUnit = usePredefTexUnit ? BUMP_MAP_UNIT : unit++;
+                                            _texCoordSetMap[TextureToCoordSetMap::key_type(stateset, BUMP_MAP_UNIT)] = texCoordUnit;
+                                        
+                                            stateset->setTextureAttributeAndModes(BUMP_MAP_UNIT, tex);
+
+                                            ss << texCoordUnit;
+                                            stateset->setUserValue("extra_bump_unit", ss.str());
+                                            ss.str("");
+                                            ss <<  texCoord;
+                                            stateset->setUserValue("extra_bump_texcoord", ss.str());
+                                            ss.str("");
+                                            ss <<  tex->getImage()->getFileName() ;
+                                            stateset->setUserValue("extra_bump_map", ss.str());
+
+                                            if (childTexture->getChild("extra") 
+                                                && childTexture->getChild("extra")->getChild("technique")
+                                                && childTexture->getChild("extra")->getChild("technique")->getChild("amount"))
+                                            {
+                                                std::string texValue = childTexture->getChild("extra")->getChild("technique")->getChild("amount")->getCharData();
+                                                stateset->setUserValue("extra_bump_amount", texValue);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else if ( strcmp( child->getElementName(), "imagebased" ) == 0 )
+                            {
+                                //osg::notify(osg::NOTICE) <<  "IBL: " << child->getElementName() <<  std::endl;
+                                unsigned int numChildren = child->getContents().getCount();
+                                for ( unsigned int currChildBump = 0; currChildBump < numChildren; ++currChildBump )
+                                {
+                                    if ( strcmp( child->getContents()[currChildBump]->getElementName(), "texture" ) == 0 )
+                                    {
+                                        domAny *childTexture = (domAny*)(daeElement*)child->getContents()[currChildBump];
+
+                                        /*
+                                        unsigned int numAttrs = childTexture->getAttributeCount();
+                                        for ( unsigned int currAttr = 0; currAttr < numAttrs; ++currAttr )
+                                        {
+                                            osg::notify(osg::NOTICE) << "\tAttribute: "<< childTexture->getAttributeName( currAttr ) << " has value: " << childTexture->getAttributeValue( currAttr )  << std::endl;
+                                        }
+                                        */
+                                        std::stringstream ss;
+                                        std::string texPath = childTexture->getAttribute( "texture" );
+                                        daeString texName = daeString(texPath.c_str());
+                                        osg::Texture2D* tex =  getTexture(texName, IMAGE_BASE_LIGHT_MAP_UNIT);
+                                        
+                                        if (tex)
+                                        {
+                                            std::string texCoord = childTexture->getAttribute( "texcoord" );
+                                            unsigned int texCoordUnit = usePredefTexUnit ? IMAGE_BASE_LIGHT_MAP_UNIT : unit++;
+                                            _texCoordSetMap[TextureToCoordSetMap::key_type(stateset, IMAGE_BASE_LIGHT_MAP_UNIT)] = texCoordUnit;
+                                        
+                                            stateset->setTextureAttributeAndModes(IMAGE_BASE_LIGHT_MAP_UNIT, tex);
+                                        
+                                            ss << texCoordUnit;
+                                            stateset->setUserValue("extra_imagebased_unit", ss.str());
+                                            ss.str("");
+                                            ss <<  texCoord;
+                                            stateset->setUserValue("extra_imagebased_texcoord", ss.str());
+                                            ss.str("");
+                                            ss <<  tex->getImage()->getFileName() ;
+                                            stateset->setUserValue("extra_imagebased_map", ss.str());
+
+                                            if (childTexture->getChild("extra") 
+                                                && childTexture->getChild("extra")->getChild("technique")
+                                                && childTexture->getChild("extra")->getChild("technique")->getChild("amount"))
+                                            {
+                                                std::string texValue = childTexture->getChild("extra")->getChild("technique")->getChild("amount")->getCharData();
+                                                stateset->setUserValue("extra_imagebased_amount", texValue);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // helpful for debugging new Profiles
+                                //printDomAny( child );
+                            }
+                        }
+                        else if ( teq->getContents()[currChild]->getElementType() == COLLADA_TYPE::PARAM )
+                        {
+                            domParam *param = daeSafeCast<domParam>( teq->getContents()[currChild] );
+                            //use param element
+                        }
+                        else
+                        {
+                            osg::notify(osg::NOTICE) << "Error: Invalid element for profile custom" << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 
 osg::Group* daeReader::processExtras(domNode *node)
@@ -507,6 +1214,10 @@ void daeReader::processNodeExtra(osg::Node* osgNode, domNode *node)
                 }
             }
         }
+        else
+        {
+            OSG_WARN << "Unsupported Extra Type: " << extra->getType() << std::endl;
+        }
     }
 }
 
@@ -545,11 +1256,11 @@ osg::Node* daeReader::processNode( domNode *node, bool skeleton)
     // If there exist any of the <lookat>, <matrix>, <rotate>, <scale>, <skew>, <translate> elements
     // or if a COLLADA_TYPE_INSTANCE_RIGID_BODY targets this node we need a MatrixTransform
     int coordcount =    node->getRotate_array().getCount() +
-                        node->getScale_array().getCount() +
-                        node->getTranslate_array().getCount() +
-                        node->getLookat_array().getCount() +
-                        node->getMatrix_array().getCount() +
-                        node->getSkew_array().getCount();
+        node->getScale_array().getCount() +
+        node->getTranslate_array().getCount() +
+        node->getLookat_array().getCount() +
+        node->getMatrix_array().getCount() +
+        node->getSkew_array().getCount();
 
     // See if it is targeted by an animation
     bool targeted = false;
@@ -658,7 +1369,7 @@ osg::Node* daeReader::processNode( domNode *node, bool skeleton)
 
         if (n)
             // Recursive call
-            addChild(attachTo, processNode( n, skeleton ));
+                addChild(attachTo, processNode( n, skeleton ));
         else
             OSG_WARN << "Failed to locate node " << nodeInstanceArray[i]->getUrl().getURI() << std::endl;
     }
