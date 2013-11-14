@@ -165,7 +165,11 @@ public:
     {
         AMBIENT_OCCLUSION_UNIT = 0,
         MAIN_TEXTURE_UNIT,
-        TRANSPARENCY_MAP_UNIT
+        TRANSPARENCY_MAP_UNIT,
+        BUMP_MAP_UNIT,
+        IMAGE_BASE_LIGHT_MAP_UNIT,
+        ILLUMINATION_MAP_UNIT,
+        SPECULAR_MAP_UNIT
     };
 
     enum InterpolationType
@@ -191,7 +195,8 @@ public:
         FBX_CONVERTER,
         AUTODESK_3DS_MAX = FBX_CONVERTER,//3ds Max exports to DAE via Autodesk's FBX converter
         GOOGLE_SKETCHUP,
-        MAYA
+        MAYA,
+        ADOBE_PHOTOSHOP
     };
 
     class TextureParameters
@@ -258,6 +263,11 @@ public:
 private:
     bool processDocument( const std::string& );
     void clearCaches();
+
+    // attach metadata to node where we don't know how to osgize those data. (renderer or writer plugin might know)
+    void saveMaterialToStateSetMetaData(domMaterial*const material, osg::StateSet* stateset);
+    // convert to stateset metadata texture informations
+    void saveMetadataMap(osg::StateSet* stateset, const xsNCName &texPath, unsigned int unit_reserved, unsigned int unit, const std::string &prefix, const std::string &midfix);
 
     // If the node is a bone then it should be added before any other types of
     // node, this function makes that happen.
@@ -341,7 +351,7 @@ private:
     void processMaterial(osg::StateSet *ss, domMaterial *mat );
     void processEffect(osg::StateSet *ss, domEffect *effect );
     void processProfileCOMMON(osg::StateSet *ss, domProfile_COMMON *pc );
-    bool processColorOrTextureType(const osg::StateSet*,
+    bool processColorOrTextureType(osg::StateSet*,
                                     domCommon_color_or_texture_type *cot,
                                     osg::Material::ColorMode channel,
                                     osg::Material *mat,
@@ -359,6 +369,7 @@ private:
     std::string processImagePath(const domImage*) const;
     osg::Image* processImageTransparency(const osg::Image*, domFx_opaque_enum, float transparency) const;
     osg::Texture2D* processTexture( domCommon_color_or_texture_type_complexType::domTexture *tex, const osg::StateSet*, TextureUnitUsage, domFx_opaque_enum = FX_OPAQUE_ENUM_A_ONE, float transparency = 1.0f);
+    osg::Texture2D *getTexture(daeString &texName, TextureUnitUsage tuu, domFx_opaque_enum = FX_OPAQUE_ENUM_A_ONE, float transparency = 1.0f);
     bool copyTextureCoordinateSet(const osg::StateSet* ss, const osg::Geometry* cachedGeometry, osg::Geometry* clonedGeometry, const domInstance_material* im, TextureUnitUsage tuu, unsigned int textureUnit);
 
     //scene objects
@@ -413,6 +424,7 @@ private:
     OldToNewIndexMap _oldToNewIndexMap;
 
     AuthoringTool _authoringTool;
+    std::string _authoringToolName;
     bool _invertTransparency;
     Options _pluginOptions;
 

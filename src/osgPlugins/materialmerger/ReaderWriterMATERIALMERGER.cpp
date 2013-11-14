@@ -60,7 +60,7 @@ public:
         osg::Group* root = new osg::Group();
         osgUtil::Optimizer optimizer;
 
-        for(std::map<osg::StateSet*, std::vector<osg::Geometry*> >::iterator it = nodes.begin(); it != nodes.end(); it++)
+        for(std::map<osg::StateSet*, std::vector<osg::Geometry*>, StateSetComparator>::iterator it = nodes.begin(); it != nodes.end(); it++)
         {
             // one geode per stateset
             osg::Group* group = new osg::Group();
