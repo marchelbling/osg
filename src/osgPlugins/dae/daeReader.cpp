@@ -31,6 +31,8 @@
 #include <osg/TexEnv>
 #include <osg/LightModel>
 
+#include <osgDB/ReadFile>
+
 using namespace osgDAE;
 
 daeReader::Options::Options() :
@@ -479,13 +481,15 @@ void printDomAny( domAny *anyElement, unsigned int indent = 0 )
 // "sampler" links to  a "surface" 
 // "surface" links to  a "init_from" image
 // "image" links to  a "init_from"  texture file path
-void getSamplerSource(daeDatabase* database, std::string &samplerId, std::string &textureId) 
+void getSamplerSource(daeDatabase* database, std::string &samplerId, std::string &imageId) 
 {
     domElement* param;
-    unsigned int count = database->getElementCount(NULL, "init_from", NULL);
+	// sampler to surface
+	std::string surfaceId;
+    unsigned int count = database->getElementCount(NULL, "source", NULL);
     for ( unsigned int imageIdx = 0; imageIdx < count; ++imageIdx )
     {
-        daeInt error = database->getElement((daeElement**)&param, imageIdx, NULL, "init_from", NULL);
+        daeInt error = database->getElement((daeElement**)&param, imageIdx,   NULL, "source", NULL);
         domElement* surfaceEl = param->getParentElement();
         std::string sid = surfaceEl->getParentElement()->getAttribute("sid");
         if ( strcmp( sid.c_str(), samplerId.c_str() ) == 0 )
@@ -498,24 +502,65 @@ void getSamplerSource(daeDatabase* database, std::string &samplerId, std::string
                 {
                     //el->getTypeName();
                     std::string path = param->getCharData();
-                    osg::notify(osg::NOTICE) <<   "Image Path: " <<  path   << std::endl;
+                    osg::notify(osg::NOTICE) <<   "Sampler Surface: " <<  path   << std::endl;
+					surfaceId = path;
+					break;
                 }
             }
-
-            //texturePath = 
         }
     }
+	if (surfaceId.empty())
+		return;
+
+	// surface to init_from
+	std::string init_from;
+    unsigned int count2 = database->getElementCount(NULL, "profile_COMMON", NULL);
+    for ( unsigned int imageIdx = 0; imageIdx < count2; ++imageIdx )
+    {
+        daeInt error = database->getElement((daeElement**)&param, imageIdx, NULL, "profile_COMMON", NULL);
+        for ( unsigned int imageChildIdx = 0; imageChildIdx < param->getChildren().getCount(); ++imageChildIdx )
+        {
+			domElement* surfaceEl = param->getChildren()[imageChildIdx];
+			std::string sid = surfaceEl->getAttribute("sid");
+			if (strcmp( sid.c_str(), surfaceId.c_str() ) == 0)
+			{
+                osg::notify(osg::NOTICE) <<    surfaceEl->getTypeName()   << std::endl;
+                osg::notify(osg::NOTICE) <<    surfaceEl->getElementName()   << std::endl;
+				for ( unsigned int imageChildIdx2 = 0; imageChildIdx2 < surfaceEl->getChildren().getCount(); ++imageChildIdx2 )
+				{
+				    daeElement * el = surfaceEl->getChildren()[imageChildIdx2];
+				    if ( strcmp( el->getElementName(), "surface" ) == 0 )
+					{						
+						for ( unsigned int imageChildIdx3 = 0; imageChildIdx3 < el->getChildren().getCount(); ++imageChildIdx3 )
+						{
+							daeElement * elChild = el->getChildren()[imageChildIdx3];
+							if ( strcmp( elChild->getElementName(), "init_from" ) == 0 )
+							{
+								std::string path = elChild->getCharData();
+								osg::notify(osg::NOTICE) <<   "Init From: " <<  path   << std::endl;
+								init_from = path;
+								imageId = init_from;
+								return;
+							}
+						}
+					}
+				}
+			}
+		}
+    }
 }
-void getTexturePath(daeDatabase* database, std::string &textureId, std::string &texturePath) 
+osg::Texture2D *getTextureNotColladed(daeDatabase* database, std::string &samplerId) 
 {
-    std::string samplerId;
-    getSamplerSource(database, textureId, samplerId);
+    std::string imageId;
+    getSamplerSource(database, samplerId, imageId);
+
+	std::string texturePath;
     domLibrary_images* images;
       daeInt error = database->getElement((daeElement**)&images, 0, NULL, COLLADA_TYPE_LIBRARY_IMAGES, NULL);
     for ( unsigned int imageIdx = 0; imageIdx < images->getImage_array().getCount(); ++imageIdx )
     {
         domImage *image = images->getImage_array()[imageIdx];
-        if ( strcmp( image->getName(), textureId.c_str() ) == 0 )
+        if ( strcmp( image->getName(), imageId.c_str() ) == 0 )
         {
             for ( unsigned int imageChildIdx = 0; imageChildIdx < image->getChildren().getCount(); ++imageChildIdx )
             {
@@ -526,12 +571,33 @@ void getTexturePath(daeDatabase* database, std::string &textureId, std::string &
                     el->getTypeName();
                     std::string path = el->getCharData();
                     osg::notify(osg::NOTICE) <<   "Image Path: " <<  path   << std::endl;
+					osg::Image* ibl_mage = osgDB::readImageFile ( path ); 
+					osg::Texture2D *tex = new osg::Texture2D(ibl_mage);
+					return tex;
                 }
             }
-
-            //texturePath = 
         }
     }
+	return 0;
+}
+/* when collada dom doesn't recognize an image/sampler/surface as binded... have to search it by hand*/
+int getTexUnit(osg::StateSet* stateset, const std::string &fileName)
+{
+    const unsigned int tuListSize = stateset->getTextureAttributeList().size();
+    for(unsigned int i=0;i<tuListSize;++i)
+    {
+        osg::Texture* texture = dynamic_cast<osg::Texture*>(stateset->getTextureAttribute(i,osg::StateAttribute::TEXTURE));
+        if (texture)
+        {
+            osg::Image *img = texture->getImage(0);
+            if ( strcmp( img->getFileName().c_str(), fileName.c_str() ) == 0 )
+            {
+                osg::notify(osg::NOTICE) <<   "Texture: " <<  img->getFileName()   <<  " => Texunit: " << i << std::endl;
+                return i;			
+            }
+        }
+    }    
+    return -1;
 }
 void daeReader::saveMetadataMap(osg::StateSet* stateset, const xsNCName &texPath, unsigned int unit_reserved, unsigned int unit, const std::string &prefix, const std::string &midfix)
 {    
@@ -542,13 +608,11 @@ void daeReader::saveMetadataMap(osg::StateSet* stateset, const xsNCName &texPath
     {
         std::stringstream ss;
         std::stringstream ssMeta;
-
-        ss << unit;
+        
+        int tunit = getTexUnit(stateset, tex->getImage()->getFileName());
+        ss << (tunit != -1 ? tunit : unit);
         ssMeta << prefix << "_" << midfix << "_" << "unit";
         stateset->setUserValue(ssMeta.str(), ss.str());
-        ssMeta.str("");
-        ssMeta << prefix << "_" << midfix << "_" << "map";
-        stateset->setUserValue(ssMeta.str(),  tex->getImage()->getFileName());
     }
 }
 //TODO: fukk everything should og into daeReader::processProfileCOMMON
@@ -559,10 +623,9 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
     stateset->setUserValue("source", s);    
     stateset->setUserValue("source_tool", _authoringToolName);
 
-    // TODO: check unit texture slot allocation
     unsigned int unit = 0;
 
-    const bool usePredefTexUnit = false;//_pluginOptions.usePredefinedTextureUnits;
+    const bool usePredefTexUnit = _pluginOptions.usePredefinedTextureUnits;
 
     domInstance_effect * _currentInstance_effect = material->getInstance_effect();
     domEffect *effect = daeSafeCast< domEffect >( getElementFromURI( _currentInstance_effect->getUrl() ) );
@@ -1008,22 +1071,18 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                                         daeString texName = daeString(texPath.c_str());
                                         osg::Texture2D* tex =  getTexture(texName, BUMP_MAP_UNIT);
                                         if (tex)
-                                        {
-                                            std::string texCoord = childTexture->getAttribute( "texcoord" );
-
+                                        {                                   
                                             unsigned int texCoordUnit = usePredefTexUnit ? BUMP_MAP_UNIT : unit++;
-                                            _texCoordSetMap[TextureToCoordSetMap::key_type(stateset, BUMP_MAP_UNIT)] = texCoordUnit;
-                                        
-                                            stateset->setTextureAttributeAndModes(BUMP_MAP_UNIT, tex);
-
-                                            ss << texCoordUnit;
+                                            stateset->setTextureAttributeAndModes(texCoordUnit, tex);											
+                                            std::string texCoord = childTexture->getAttribute( "texcoord" );
+                                            _texCoordSetMap[TextureToCoordSetMap::key_type(stateset, BUMP_MAP_UNIT)] = texCoordUnit;     
+                                            
+                                            int texUnit = getTexUnit(stateset, tex->getImage()->getFileName());
+                                            ss << (texUnit != -1 ? texUnit : texCoordUnit);
                                             stateset->setUserValue("extra_bump_unit", ss.str());
                                             ss.str("");
                                             ss <<  texCoord;
                                             stateset->setUserValue("extra_bump_texcoord", ss.str());
-                                            ss.str("");
-                                            ss <<  tex->getImage()->getFileName() ;
-                                            stateset->setUserValue("extra_bump_map", ss.str());
 
                                             if (childTexture->getChild("extra") 
                                                 && childTexture->getChild("extra")->getChild("technique")
@@ -1057,23 +1116,26 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
                                         std::string texPath = childTexture->getAttribute( "texture" );
                                         daeString texName = daeString(texPath.c_str());
                                         osg::Texture2D* tex =  getTexture(texName, IMAGE_BASE_LIGHT_MAP_UNIT);
-                                        
+
+										// TODO when whe know what to do with IBL texture on render side
+										// (this allow adding it to the stateset by finding/creating missing texture)
+                                        // if (!tex)
+										//	 tex = getTextureNotColladed(database, texPath);		
+
                                         if (tex)
                                         {
-                                            std::string texCoord = childTexture->getAttribute( "texcoord" );
                                             unsigned int texCoordUnit = usePredefTexUnit ? IMAGE_BASE_LIGHT_MAP_UNIT : unit++;
-                                            _texCoordSetMap[TextureToCoordSetMap::key_type(stateset, IMAGE_BASE_LIGHT_MAP_UNIT)] = texCoordUnit;
-                                        
-                                            stateset->setTextureAttributeAndModes(IMAGE_BASE_LIGHT_MAP_UNIT, tex);
-                                        
-                                            ss << texCoordUnit;
+                                            stateset->setTextureAttributeAndModes(texCoordUnit, tex);											
+                                            std::string texCoord = childTexture->getAttribute( "texcoord" );
+                                            _texCoordSetMap[TextureToCoordSetMap::key_type(stateset, IMAGE_BASE_LIGHT_MAP_UNIT)] = texCoordUnit;     
+                                            
+                                            int texUnit = getTexUnit(stateset, tex->getImage()->getFileName());
+                                            ss << (texUnit != -1 ? texUnit : texCoordUnit);
                                             stateset->setUserValue("extra_imagebased_unit", ss.str());
                                             ss.str("");
                                             ss <<  texCoord;
                                             stateset->setUserValue("extra_imagebased_texcoord", ss.str());
                                             ss.str("");
-                                            ss <<  tex->getImage()->getFileName() ;
-                                            stateset->setUserValue("extra_imagebased_map", ss.str());
 
                                             if (childTexture->getChild("extra") 
                                                 && childTexture->getChild("extra")->getChild("technique")
