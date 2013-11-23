@@ -549,7 +549,7 @@ void getSamplerSource(daeDatabase* database, std::string &samplerId, std::string
 		}
 	}
 }
-osg::Texture2D *getTextureNotColladed(daeDatabase* database, std::string &samplerId) 
+osg::Texture2D *daeReader::getTextureNotColladed(daeDatabase* database, std::string &samplerId) 
 {
 	std::string imageId;
 	getSamplerSource(database, samplerId, imageId);
@@ -560,21 +560,16 @@ osg::Texture2D *getTextureNotColladed(daeDatabase* database, std::string &sample
 	for ( unsigned int imageIdx = 0; imageIdx < images->getImage_array().getCount(); ++imageIdx )
 	{
 		domImage *image = images->getImage_array()[imageIdx];
+		std::string pathComplete = this->processImagePath(image);
 		if ( strcmp( image->getName(), imageId.c_str() ) == 0 )
 		{
-			for ( unsigned int imageChildIdx = 0; imageChildIdx < image->getChildren().getCount(); ++imageChildIdx )
+			osg::notify(osg::NOTICE) <<   "Image Path: " <<  pathComplete   << std::endl;
+			osg::Image* ibl_mage = osgDB::readImageFile ( pathComplete ); 
+			if (ibl_mage)
 			{
-
-				daeElement * el = image->getChildren()[imageChildIdx];
-				if ( strcmp( el->getTypeName(), "init_from" ) == 0 )
-				{
-					el->getTypeName();
-					std::string path = el->getCharData();
-					osg::notify(osg::NOTICE) <<   "Image Path: " <<  path   << std::endl;
-					osg::Image* ibl_mage = osgDB::readImageFile ( path ); 
-					osg::Texture2D *tex = new osg::Texture2D(ibl_mage);
-					return tex;
-				}
+				osg::Texture2D *tex = new osg::Texture2D();
+				tex->setImage(ibl_mage);
+				return tex;
 			}
 		}
 	}
@@ -590,7 +585,7 @@ int getTexUnit(osg::StateSet* stateset, const std::string &fileName)
 		if (texture)
 		{
 			osg::Image *img = texture->getImage(0);
-			if ( strcmp( img->getFileName().c_str(), fileName.c_str() ) == 0 )
+			if ( img && strcmp( img->getFileName().c_str(), fileName.c_str() ) == 0 )
 			{
 				osg::notify(osg::NOTICE) <<   "Texture: " <<  img->getFileName()   <<  " => Texunit: " << i << std::endl;
 				return i;			
@@ -1163,9 +1158,9 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
 										// TODO when whe know what to do with IBL texture on render side
 										// (this allow adding it to the stateset by finding/creating missing texture)
 										if (!tex)
-											tex = getTextureNotColladed(database, texPath);		
+											tex = this->getTextureNotColladed(database, texPath);		
 
-										if (tex)
+										if (tex && tex->getImage())
 										{
 											unsigned int texCoordUnit = usePredefTexUnit ? IMAGE_BASE_LIGHT_MAP_UNIT : unit++;
 											stateset->setTextureAttributeAndModes(texCoordUnit, tex);											

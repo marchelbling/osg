@@ -366,7 +366,8 @@ namespace osgDAE
             unsigned int diffuseTextureUnit );
         bool GetFloat4Param(xsNCName Reference, domFloat4 &f4) const;
         bool GetFloatParam(xsNCName Reference, domFloat &f) const;
-
+        
+        osg::Texture2D *getTextureNotColladed(daeDatabase* database, std::string &samplerId);
         std::string processImagePath(const domImage*) const;
         osg::Image* processImageTransparency(const osg::Image*, domFx_opaque_enum, float transparency) const;
         osg::Texture2D* processTexture( domCommon_color_or_texture_type_complexType::domTexture *tex, const osg::StateSet*, TextureUnitUsage, domFx_opaque_enum = FX_OPAQUE_ENUM_A_ONE, float transparency = 1.0f);
