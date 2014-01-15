@@ -643,7 +643,7 @@ unsigned int daeReader::transparencyMetaData(const std::string &renderEquation, 
                     for (int j = 0; j < s; ++j)
                     {
                         osg::Vec4 color(srcImg->getColor(j, i));
-                        if (color.a() != 0 && color.a() != 1){
+                        if (color.a() > 0.05 && color.a() < 0.95){
                             alpha_mask = false;
                             break;
                         }

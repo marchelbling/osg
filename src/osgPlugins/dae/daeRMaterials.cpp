@@ -1063,6 +1063,14 @@ osg::Texture2D *daeReader::getTexture(
             return NULL;
         }
 
+        if (sampler->getSource() == NULL )
+        {
+            OSG_WARN << "Could not locate source for sampler2D" << std::endl;
+            return NULL;
+        }
+
+	
+
         //find the newparam for the surface based on the sampler2D->source value
         target = std::string("./") + std::string( sampler->getSource()->getValue() );
         daeSIDResolver res2( _currentEffect, target.c_str() );
