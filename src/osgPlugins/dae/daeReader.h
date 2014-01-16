@@ -170,7 +170,8 @@ namespace osgDAE
             IMAGE_BASE_LIGHT_MAP_UNIT,
             ILLUMINATION_MAP_UNIT,
             SPECULAR_MAP_UNIT,
-            REFLECTIVE_MAP_UNIT
+            REFLECTIVE_MAP_UNIT,
+            SHININESS_MAP_UNIT
         };
 
         enum InterpolationType
@@ -265,6 +266,8 @@ namespace osgDAE
         bool processDocument( const std::string& );
         void clearCaches();
 
+        // convert collada transparency multiple type and option to metadata and correct textures
+        unsigned int transparencyMetaData(const std::string &renderEquation, unsigned int unit, osg::StateSet *ss,  domCommon_transparent_type *ctt, domCommon_float_or_param_type *pTransparency);
         // attach metadata to node where we don't know how to osgize those data. (renderer or writer plugin might know)
         void saveMaterialToStateSetMetaData(domMaterial*const material, osg::StateSet* stateset);
         // convert to stateset metadata texture informations
@@ -290,6 +293,7 @@ namespace osgDAE
         standard. This function looks at all transparency values in the database and
         heuristically decides which way the values should be interpreted.*/
         bool findInvertTransparency(daeDatabase*) const;
+        float luminance(const osg::Vec4& color) const;
 
         osgAnimation::BasicAnimationManager* processAnimationLibraries(domCOLLADA* document);
         void processAnimationClip(osgAnimation::BasicAnimationManager* pOsgAnimationManager, domAnimation_clip* pDomAnimationClip);
