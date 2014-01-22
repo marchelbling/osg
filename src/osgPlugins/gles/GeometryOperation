@@ -16,6 +16,7 @@
 #include <osg/Geometry>
 #include <osg/Geode>
 #include <map>
+#include <algorithm> //std::max
 
 
 bool needToSplit(osg::PrimitiveSet* p, unsigned int maxIndex = 65535, unsigned int* index = 0);
@@ -38,16 +39,24 @@ class OpenGLESGeometryOptimizerVisitor : public osg::NodeVisitor
 {
 public:
 
-    OpenGLESGeometryOptimizerVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) , _disableTriStrip(false), _triStripCacheSize(16), _disableMergeTriStrip(false), _tangentUnit(0), _generateTangentSpace(false) {
-
-        _sceneNbTriangles = 0;
-        _sceneNbVertexes = 0;
+    OpenGLESGeometryOptimizerVisitor() :
+        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+        _disableTriStrip(false),
+        _disableMergeTriStrip(false),
+        _generateTangentSpace(false),
+        _triStripCacheSize(16),
+        _triStripMinSize(2),
+        _tangentUnit(0),
+        _sceneNbTriangles(0),
+        _sceneNbVertexes(0)
+    {
     }
 
     void apply(osg::Geode& node);
 
     void setUseDrawArray(bool s) { _useDrawArray = s; }
     void setTripStripCacheSize(unsigned int size) { _triStripCacheSize = size; }
+    void setTripStripMinSize(unsigned int size) { _triStripMinSize = std::max<unsigned int>(size, 2); }
     void setTexCoordChannelForTangentSpace(int uv) {
         _tangentUnit = uv;
         _generateTangentSpace = true;
@@ -96,6 +105,7 @@ public:
 protected:
     bool _disableTriStrip;
     unsigned int _triStripCacheSize;
+    unsigned int _triStripMinSize;
     bool _disableMergeTriStrip;
     bool _useDrawArray;
 

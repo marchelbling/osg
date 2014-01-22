@@ -51,7 +51,8 @@ public:
          int tangentSpaceTextureUnit;
          bool disableTriStrip;
          bool disableMergeTriStrip;
-         int triStripCacheSize;
+         unsigned int triStripCacheSize;
+         unsigned int triStripMinSize;
          bool useDrawArray;
          bool disableIndex;
 
@@ -62,6 +63,7 @@ public:
              disableTriStrip = false;
              disableMergeTriStrip = false;
              triStripCacheSize = 16;
+             triStripMinSize = 2;
              useDrawArray = false;
              disableIndex = false;
          }
@@ -76,6 +78,7 @@ public:
         supportsOption("generateTangentSpace","Build tangent space to each geometry");
         supportsOption("tangentSpaceTextureUnit=<unit>","Specify on wich texture unit normal map is");
         supportsOption("triStripCacheSize=<int>","set the cache size when doing tristrip");
+        supportsOption("triStripMinSize=<int>","set the minimum accepted length for a strip");
         supportsOption("disableMergeTriStrip","disable the merge of all tristrip into one");
         supportsOption("disableTriStrip","disable generation of tristrip");
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
@@ -104,6 +107,7 @@ public:
 
         visitor.setUseDrawArray(options.useDrawArray);
         visitor.setTripStripCacheSize(options.triStripCacheSize);
+        visitor.setTripStripMinSize(options.triStripMinSize);
         visitor.setDisableTriStrip(options.disableTriStrip);
         visitor.setDisableMergeTriStrip(options.disableMergeTriStrip);
         model->accept(visitor);
@@ -210,6 +214,9 @@ public:
                     }
                     if (pre_equals == "triStripCacheSize") {
                         localOptions.triStripCacheSize = atoi(post_equals.c_str());
+                    }
+                    if (pre_equals == "triStripMinSize") {
+                        localOptions.triStripMinSize = atoi(post_equals.c_str());
                     }
                 }
             }

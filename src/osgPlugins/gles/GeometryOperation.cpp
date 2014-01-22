@@ -593,10 +593,11 @@ static void mergeTrianglesStrip(osg::Geometry& geom)
     }
 }
 
-static void generateTriStrip(osg::Geometry* geom, int vertexCache, bool merge) 
+static void generateTriStrip(osg::Geometry* geom, int vertexCache, int minStripSize, bool merge)
 {
     osgUtil::TriStripVisitor tristrip;
     tristrip.setCacheSize(vertexCache);
+    tristrip.setMinStripSize(minStripSize);
     tristrip.stripify(*geom);
                             
     // merge stritrip to one call
@@ -668,22 +669,29 @@ void OpenGLESGeometryOptimizerVisitor::apply(osg::Geode& node)
                     if (splitter.split(*triangles)) {
                         for (unsigned int j = 0; j < splitter._geometryList.size(); j++) {
                             osg::Geometry* geom = splitter._geometryList[j];
-                            if (!_disableTriStrip) {
-                                generateTriStrip(geom, _triStripCacheSize, !_disableMergeTriStrip);
+                            if (!_disableTriStrip)
+                            {
+                                generateTriStrip(geom, _triStripCacheSize, _triStripMinSize, !_disableMergeTriStrip);
                             }
                             // done
                             localListGeometry.push_back(geom);
                         }
-                    } else {
-                        if (!_disableTriStrip) {
-                            generateTriStrip(triangles, _triStripCacheSize, !_disableMergeTriStrip);
+                    }
+                    else
+                    {
+                        if (!_disableTriStrip)
+                        {
+                            generateTriStrip(triangles, _triStripCacheSize, _triStripMinSize, !_disableMergeTriStrip);
                         }
                         // done
                         localListGeometry.push_back(triangles);
                     }
-                } else {
-                    if (!_disableTriStrip) {
-                        generateTriStrip(triangles, _triStripCacheSize, !_disableMergeTriStrip);
+                }
+                else
+                {
+                    if (!_disableTriStrip)
+                    {
+                        generateTriStrip(triangles, _triStripCacheSize, _triStripMinSize, !_disableMergeTriStrip);
                     }
                     triangles = convertToDrawArray(*triangles);
                     localListGeometry.push_back(triangles);
