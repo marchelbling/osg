@@ -1069,7 +1069,7 @@ osg::Texture2D *daeReader::getTexture(
             return NULL;
         }
 
-	
+    
 
         //find the newparam for the surface based on the sampler2D->source value
         target = std::string("./") + std::string( sampler->getSource()->getValue() );
@@ -1190,8 +1190,15 @@ osg::Texture2D* daeReader::processTexture(
 {
     daeString texName = (daeString) tex->getTexture();
     osg::Texture2D *t2D = getTexture(texName, tuu, opaque, transparency);
-    _texCoordSetMap[TextureToCoordSetMap::key_type(ss, tuu)] = tex->getTexcoord();
-
+    if (t2D != NULL)
+    {
+        const TextureToCoordSetMap::key_type idx = TextureToCoordSetMap::key_type(ss, tuu);
+        _texCoordSetMap[idx] = tex->getTexcoord();
+    }
+    else
+    {
+        osg::notify(osg::ALWAYS) <<    texName << " texture missing "   << std::endl;   
+    }
     return t2D;
 }
 
