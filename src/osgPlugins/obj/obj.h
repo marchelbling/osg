@@ -79,6 +79,7 @@ public:
             SPECULAR_EXPONENT,
             BUMP,
             NORMAL,
+            OCCLUSION,
             DISPLACEMENT,
             REFLECTION,        // read of a reflection map will also apply spherical texgen coordinates
             UNKNOWN            // UNKNOWN has to be the last
