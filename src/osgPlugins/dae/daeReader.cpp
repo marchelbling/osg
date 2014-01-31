@@ -19,6 +19,7 @@
 #include <dom/domInstanceWithExtra.h>
 #include <dom/domProfile_COMMON.h>
 #include <dom/domConstants.h>
+#include "dae/daeStandardURIResolver.h"
 
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
@@ -131,12 +132,42 @@ bool daeReader::processDocument( const std::string& fileURI)
             _assetUp_axis = _document->getAsset()->getUp_axis()->getValue();
     }
 
+    
     domInstanceWithExtra *ivs = _document->getScene()->getInstance_visual_scene();
+
     _visualScene = daeSafeCast< domVisual_scene >( getElementFromURI( ivs->getUrl() ) );
+    
     if ( _visualScene == NULL )
     {
-        OSG_WARN << "Unable to locate visual scene!" << std::endl;
-        return false;
+        // bad xml doc with multiple element with same id
+        daeDatabase* database = _dae->getDatabase();
+        unsigned int count = database->getElementCount(NULL, "visual_scene", NULL);
+        for ( unsigned int vsIdx = 0; vsIdx < count; ++vsIdx )
+        {
+            domElement* el;
+            result = database->getElement(&el, vsIdx, NULL, "visual_scene", NULL);
+            if (result == DAE_OK)
+            {
+                _visualScene = daeSafeCast< domVisual_scene >( el );
+
+                //dae.getDatabase()->idLookup(ivs->getUrl().getURI(), root->getDocument());
+                daeTArray<daeSmartRef<daeElement> > array;
+                el->getChildren( array );
+                
+                unsigned int countNode = database->getElementCount(NULL, "visual_scene", NULL);
+                for ( unsigned int nodeIdx = 0; nodeIdx < countNode; ++nodeIdx )
+                {
+                    array[nodeIdx]->setAttribute("id", "");
+                }
+                break;
+            }
+        }
+
+    }
+    if ( _visualScene == NULL )
+    {
+            OSG_WARN << "Unable to locate visual scene!" << std::endl;
+            return false;
     }
 
     if (daeDatabase* database = _dae->getDatabase())
@@ -1444,9 +1475,13 @@ void daeReader::processNodeExtra(osg::Node* osgNode, domNode *node)
                 }
             }
         }
-        else
+        else if (extraType)
         {
             OSG_WARN << "Unsupported Extra Type: " << extra->getType() << std::endl;
+        }
+        else
+        {
+            OSG_WARN << "Unsupported Extra Type: " << std::endl;
         }
     }
 }
