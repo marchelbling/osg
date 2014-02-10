@@ -778,335 +778,337 @@ void daeReader::saveMaterialToStateSetMetaData(domMaterial*const material, osg::
         for ( size_t i = 0; i < arr.getCount(); i++ )
         {
             domProfile_COMMON *pc = daeSafeCast< domProfile_COMMON >( arr[i] );
-            if (pc != NULL )
+            if (pc)
             {
                 domProfile_COMMON::domTechnique *teq = pc->getTechnique();
-
-                /*
-                domProfile_COMMON::domTechnique::domConstant *c = teq->getConstant();
-                */
-                domProfile_COMMON::domTechnique::domBlinn *b = teq->getBlinn();				
-                if (b)
+                if (teq)
                 {
+                    /*
+                    domProfile_COMMON::domTechnique::domConstant *c = teq->getConstant();
+                    */
+                    domProfile_COMMON::domTechnique::domBlinn *b = teq->getBlinn();				
+                    if (b)
+                    {
 
-                    // ambient
-                    if(b->getAmbient())
-                    {
-                        if(b->getAmbient()->getColor() != NULL )
+                        // ambient
+                        if(b->getAmbient())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = b->getAmbient()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("blinn_ambient_color", ss.str());
+                            if(b->getAmbient()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = b->getAmbient()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("blinn_ambient_color", ss.str());
+                            }
+                            if (b->getAmbient()->getTexture())
+                            {
+                                saveMetadataMap(stateset, b->getAmbient()->getTexture()->getTexture(), 
+                                    AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "blinn", "ambient");
+                            }
                         }
-                        if (b->getAmbient()->getTexture())
-                        {
-                            saveMetadataMap(stateset, b->getAmbient()->getTexture()->getTexture(), 
-                                AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "blinn", "ambient");
-                        }
-                    }
 
-                    // diffuse
-                    if(b->getDiffuse())
-                    {
-                        if(b->getDiffuse()->getColor() != NULL )
+                        // diffuse
+                        if(b->getDiffuse())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = b->getDiffuse()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("blinn_diffuse_color", ss.str());
-                        }
-                        if (b->getDiffuse()->getTexture())
-                        {
-                            saveMetadataMap(stateset, b->getDiffuse()->getTexture()->getTexture(), 
-                                MAIN_TEXTURE_UNIT, (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "blinn", "diffuse");
+                            if(b->getDiffuse()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = b->getDiffuse()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("blinn_diffuse_color", ss.str());
+                            }
+                            if (b->getDiffuse()->getTexture())
+                            {
+                                saveMetadataMap(stateset, b->getDiffuse()->getTexture()->getTexture(), 
+                                    MAIN_TEXTURE_UNIT, (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "blinn", "diffuse");
 
+                            }
                         }
-                    }
 
-                    // emissive
-                    if(b->getEmission())
-                    {
-                        if(b->getEmission()->getColor() != NULL )
+                        // emissive
+                        if(b->getEmission())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = b->getEmission()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("blinn_emission_color", ss.str());
+                            if(b->getEmission()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = b->getEmission()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("blinn_emission_color", ss.str());
+                            }
+                            if (b->getEmission()->getTexture())
+                            {
+                                saveMetadataMap(stateset, b->getEmission()->getTexture()->getTexture(), 
+                                    ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "blinn", "emission");                          
+                            }
                         }
-                        if (b->getEmission()->getTexture())
-                        {
-                            saveMetadataMap(stateset, b->getEmission()->getTexture()->getTexture(), 
-                                ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "blinn", "emission");                          
-                        }
-                    }
 
-                    // specular
-                    if(b->getSpecular())
-                    {
-                        if(b->getSpecular()->getColor() != NULL )
+                        // specular
+                        if(b->getSpecular())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = b->getSpecular()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("blinn_specular_color", ss.str());
-                        }
-                        if (b->getSpecular()->getTexture())
-                        {
-                            saveMetadataMap(stateset, b->getSpecular()->getTexture()->getTexture(), 
-                                SPECULAR_MAP_UNIT,  (usePredefTexUnit ? SPECULAR_MAP_UNIT : unit++), "blinn", "specular");                           
+                            if(b->getSpecular()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = b->getSpecular()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("blinn_specular_color", ss.str());
+                            }
+                            if (b->getSpecular()->getTexture())
+                            {
+                                saveMetadataMap(stateset, b->getSpecular()->getTexture()->getTexture(), 
+                                    SPECULAR_MAP_UNIT,  (usePredefTexUnit ? SPECULAR_MAP_UNIT : unit++), "blinn", "specular");                           
 
+                            }
                         }
-                    }
-                    // specular exponent
-                    if(b->getShininess())
-                    {
-                        if(b->getShininess() != NULL && b->getShininess()->getFloat() != NULL )
+                        // specular exponent
+                        if(b->getShininess())
                         {
-                            std::stringstream ss;
-                            domFloat f = b->getShininess()->getFloat()->getValue();
-                            ss << f ;
-                            stateset->setUserValue("blinn_shininess_amount", ss.str());
+                            if(b->getShininess() != NULL && b->getShininess()->getFloat() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat f = b->getShininess()->getFloat()->getValue();
+                                ss << f ;
+                                stateset->setUserValue("blinn_shininess_amount", ss.str());
+                            }
                         }
-                    }
 
-                    // Reflectivity
-                    if(b->getReflective())
-                    {
-                        if(b->getReflective()->getColor() != NULL )
+                        // Reflectivity
+                        if(b->getReflective())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = b->getReflective()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("blinn_reflective_color", ss.str());
+                            if(b->getReflective()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = b->getReflective()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("blinn_reflective_color", ss.str());
+                            }
+                            if (b->getReflective()->getTexture())
+                            {
+                                saveMetadataMap(stateset, b->getReflective()->getTexture()->getTexture(), 
+                                    REFLECTIVE_MAP_UNIT,  (usePredefTexUnit ? REFLECTIVE_MAP_UNIT : unit++), "blinn", "reflective"); 
+                            }
                         }
-                        if (b->getReflective()->getTexture())
+                        if(b->getReflectivity())
                         {
-                            saveMetadataMap(stateset, b->getReflective()->getTexture()->getTexture(), 
-                                REFLECTIVE_MAP_UNIT,  (usePredefTexUnit ? REFLECTIVE_MAP_UNIT : unit++), "blinn", "reflective"); 
+                            if(b->getReflectivity() != NULL && b->getReflectivity()->getFloat() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat f = b->getReflectivity()->getFloat()->getValue();
+                                ss << f ;
+                                stateset->setUserValue("blinn_reflective_amount", ss.str());
+                            }
                         }
-                    }
-                    if(b->getReflectivity())
-                    {
-                        if(b->getReflectivity() != NULL && b->getReflectivity()->getFloat() != NULL )
-                        {
-                            std::stringstream ss;
-                            domFloat f = b->getReflectivity()->getFloat()->getValue();
-                            ss << f ;
-                            stateset->setUserValue("blinn_reflective_amount", ss.str());
-                        }
-                    }
 
-                    // translucency "Determining Transparency" in 1.4.1 spec				
-                    if(b->getTransparent())
-                    {
-                        unit = transparencyMetaData("blinn", unit, stateset,  b->getTransparent(), b->getTransparency());
-                    }
-                }
-                domProfile_COMMON::domTechnique::domPhong *p = teq->getPhong();			
-                if (p)
-                {
-                    unit = 0;
-                    // ambient
-                    if(p->getAmbient())
-                    {
-                        if(p->getAmbient()->getColor() != NULL )
+                        // translucency "Determining Transparency" in 1.4.1 spec				
+                        if(b->getTransparent())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = p->getAmbient()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("phong_ambient_color", ss.str());
-                        }
-                        if (p->getAmbient()->getTexture())
-                        {
-                            saveMetadataMap(stateset, p->getAmbient()->getTexture()->getTexture(), 
-                                AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "phong", "ambient");
+                            unit = transparencyMetaData("blinn", unit, stateset,  b->getTransparent(), b->getTransparency());
                         }
                     }
+                    domProfile_COMMON::domTechnique::domPhong *p = teq->getPhong();			
+                    if (p)
+                    {
+                        unit = 0;
+                        // ambient
+                        if(p->getAmbient())
+                        {
+                            if(p->getAmbient()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = p->getAmbient()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("phong_ambient_color", ss.str());
+                            }
+                            if (p->getAmbient()->getTexture())
+                            {
+                                saveMetadataMap(stateset, p->getAmbient()->getTexture()->getTexture(), 
+                                    AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "phong", "ambient");
+                            }
+                        }
 
-                    // diffuse
-                    if(p->getDiffuse())
-                    {
-                        if(p->getDiffuse()->getColor() != NULL )
+                        // diffuse
+                        if(p->getDiffuse())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = p->getDiffuse()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("phong_diffuse_color", ss.str());
+                            if(p->getDiffuse()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = p->getDiffuse()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("phong_diffuse_color", ss.str());
+                            }
+                            if (p->getDiffuse()->getTexture())
+                            {
+                                saveMetadataMap(stateset, p->getDiffuse()->getTexture()->getTexture(), 
+                                    MAIN_TEXTURE_UNIT,  (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "phong", "diffuse");
+                            }
                         }
-                        if (p->getDiffuse()->getTexture())
-                        {
-                            saveMetadataMap(stateset, p->getDiffuse()->getTexture()->getTexture(), 
-                                MAIN_TEXTURE_UNIT,  (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "phong", "diffuse");
-                        }
-                    }
 
-                    // emissive
-                    if(p->getEmission())
-                    {
-                        if(p->getEmission()->getColor() != NULL )
+                        // emissive
+                        if(p->getEmission())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = p->getEmission()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("phong_emission_color", ss.str());
+                            if(p->getEmission()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = p->getEmission()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("phong_emission_color", ss.str());
+                            }
+                            if (p->getEmission()->getTexture())
+                            {
+                                saveMetadataMap(stateset, p->getEmission()->getTexture()->getTexture(), 
+                                    ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "phong", "emission");
+                            }
                         }
-                        if (p->getEmission()->getTexture())
-                        {
-                            saveMetadataMap(stateset, p->getEmission()->getTexture()->getTexture(), 
-                                ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "phong", "emission");
-                        }
-                    }
 
-                    // specular
-                    if(p->getSpecular())
-                    {
-                        if(p->getSpecular()->getColor() != NULL )
+                        // specular
+                        if(p->getSpecular())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = p->getSpecular()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("phong_specular_color", ss.str());
+                            if(p->getSpecular()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = p->getSpecular()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("phong_specular_color", ss.str());
+                            }
+                            if (p->getSpecular()->getTexture())
+                            {
+                                saveMetadataMap(stateset, p->getSpecular()->getTexture()->getTexture(), 
+                                    SPECULAR_MAP_UNIT,  (usePredefTexUnit ? SPECULAR_MAP_UNIT : unit++), "phong", "specular");
+                            }
                         }
-                        if (p->getSpecular()->getTexture())
+                        // specular exponent
+                        if(p->getShininess())
                         {
-                            saveMetadataMap(stateset, p->getSpecular()->getTexture()->getTexture(), 
-                                SPECULAR_MAP_UNIT,  (usePredefTexUnit ? SPECULAR_MAP_UNIT : unit++), "phong", "specular");
+                            if(p->getShininess() != NULL && p->getShininess()->getFloat() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat f = p->getShininess()->getFloat()->getValue();
+                                ss << f ;
+                                stateset->setUserValue("phong_shininess_amount", ss.str());
+                            }
                         }
-                    }
-                    // specular exponent
-                    if(p->getShininess())
-                    {
-                        if(p->getShininess() != NULL && p->getShininess()->getFloat() != NULL )
-                        {
-                            std::stringstream ss;
-                            domFloat f = p->getShininess()->getFloat()->getValue();
-                            ss << f ;
-                            stateset->setUserValue("phong_shininess_amount", ss.str());
-                        }
-                    }
 
-                    // Reflectivity
-                    if(p->getReflective())
-                    {
-                        if(p->getReflective()->getColor() != NULL )
+                        // Reflectivity
+                        if(p->getReflective())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = p->getReflective()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("phong_reflective_color", ss.str());
+                            if(p->getReflective()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = p->getReflective()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("phong_reflective_color", ss.str());
+                            }
+                            if (p->getReflective()->getTexture())
+                            {
+                                saveMetadataMap(stateset, p->getReflective()->getTexture()->getTexture(), 
+                                    REFLECTIVE_MAP_UNIT,  (usePredefTexUnit ? REFLECTIVE_MAP_UNIT : unit++), "phong", "reflective");
+                            }
                         }
-                        if (p->getReflective()->getTexture())
+                        if(p->getReflectivity())
                         {
-                            saveMetadataMap(stateset, p->getReflective()->getTexture()->getTexture(), 
-                                REFLECTIVE_MAP_UNIT,  (usePredefTexUnit ? REFLECTIVE_MAP_UNIT : unit++), "phong", "reflective");
+                            if(p->getReflectivity() != NULL && p->getReflectivity()->getFloat() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat f = p->getReflectivity()->getFloat()->getValue();
+                                ss << f ;
+                                stateset->setUserValue("phong_reflective_amount", ss.str());
+                            }
                         }
-                    }
-                    if(p->getReflectivity())
-                    {
-                        if(p->getReflectivity() != NULL && p->getReflectivity()->getFloat() != NULL )
-                        {
-                            std::stringstream ss;
-                            domFloat f = p->getReflectivity()->getFloat()->getValue();
-                            ss << f ;
-                            stateset->setUserValue("phong_reflective_amount", ss.str());
-                        }
-                    }
                     
-                    // translucency "Determining Transparency" in 1.4.1 spec				
-                    if(p->getTransparent())
-                    {
-                        unit = transparencyMetaData("phong", unit, stateset,  p->getTransparent(), p->getTransparency());
-                    }
-                }
-                domProfile_COMMON::domTechnique::domLambert *l = teq->getLambert();			
-                if (l)
-                {
-                    unit = 0;
-                    // ambient
-                    if(l->getAmbient())
-                    {
-                        if(l->getAmbient()->getColor() != NULL )
+                        // translucency "Determining Transparency" in 1.4.1 spec				
+                        if(p->getTransparent())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = l->getAmbient()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("lambert_ambient_color", ss.str());
-                        }
-                        if (l->getAmbient()->getTexture())
-                        {
-                            saveMetadataMap(stateset, l->getAmbient()->getTexture()->getTexture(), 
-                                AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "lambert", "ambient");
+                            unit = transparencyMetaData("phong", unit, stateset,  p->getTransparent(), p->getTransparency());
                         }
                     }
+                    domProfile_COMMON::domTechnique::domLambert *l = teq->getLambert();			
+                    if (l)
+                    {
+                        unit = 0;
+                        // ambient
+                        if(l->getAmbient())
+                        {
+                            if(l->getAmbient()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = l->getAmbient()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("lambert_ambient_color", ss.str());
+                            }
+                            if (l->getAmbient()->getTexture())
+                            {
+                                saveMetadataMap(stateset, l->getAmbient()->getTexture()->getTexture(), 
+                                    AMBIENT_OCCLUSION_UNIT,  (usePredefTexUnit ? AMBIENT_OCCLUSION_UNIT : unit++), "lambert", "ambient");
+                            }
+                        }
 
-                    // diffuse
-                    if(l->getDiffuse())
-                    {
-                        if(l->getDiffuse()->getColor() != NULL )
+                        // diffuse
+                        if(l->getDiffuse())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = l->getDiffuse()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("lambert_diffuse_color", ss.str());
+                            if(l->getDiffuse()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = l->getDiffuse()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("lambert_diffuse_color", ss.str());
+                            }
+                            if (l->getDiffuse()->getTexture())
+                            {
+                                saveMetadataMap(stateset, l->getDiffuse()->getTexture()->getTexture(), 
+                                    MAIN_TEXTURE_UNIT,  (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "lambert", "diffuse");
+                            }
                         }
-                        if (l->getDiffuse()->getTexture())
-                        {
-                            saveMetadataMap(stateset, l->getDiffuse()->getTexture()->getTexture(), 
-                                MAIN_TEXTURE_UNIT,  (usePredefTexUnit ? MAIN_TEXTURE_UNIT : unit++), "lambert", "diffuse");
-                        }
-                    }
 
-                    // emissive
-                    if(l->getEmission())
-                    {
-                        if(l->getEmission()->getColor() != NULL )
+                        // emissive
+                        if(l->getEmission())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = l->getEmission()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("lambert_emission_color", ss.str());
+                            if(l->getEmission()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = l->getEmission()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("lambert_emission_color", ss.str());
+                            }
+                            if (l->getEmission()->getTexture())
+                            {
+                                saveMetadataMap(stateset, l->getEmission()->getTexture()->getTexture(), 
+                                    ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "lambert", "emission");
+                            }
                         }
-                        if (l->getEmission()->getTexture())
-                        {
-                            saveMetadataMap(stateset, l->getEmission()->getTexture()->getTexture(), 
-                                ILLUMINATION_MAP_UNIT,  (usePredefTexUnit ? ILLUMINATION_MAP_UNIT : unit++), "lambert", "emission");
-                        }
-                    }
 
 
-                    // Reflectivity
-                    if(l->getReflective())
-                    {
-                        if(l->getReflective()->getColor() != NULL )
+                        // Reflectivity
+                        if(l->getReflective())
                         {
-                            std::stringstream ss;
-                            domFloat4 &f4 = l->getReflective()->getColor()->getValue();
-                            ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
-                            stateset->setUserValue("lambert_reflective_color", ss.str());
+                            if(l->getReflective()->getColor() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat4 &f4 = l->getReflective()->getColor()->getValue();
+                                ss << "[ " << f4[0] << ", " << f4[1] << ", " << f4[2] << "]";
+                                stateset->setUserValue("lambert_reflective_color", ss.str());
+                            }
+                            if (l->getReflective()->getTexture())
+                            {
+                                std::stringstream ss;
+                                saveMetadataMap(stateset, l->getReflective()->getTexture()->getTexture(), 
+                                    REFLECTIVE_MAP_UNIT,  (usePredefTexUnit ? REFLECTIVE_MAP_UNIT : unit++), "lambert", "reflective");
+                            }
                         }
-                        if (l->getReflective()->getTexture())
+                        if(l->getReflectivity())
                         {
-                            std::stringstream ss;
-                            saveMetadataMap(stateset, l->getReflective()->getTexture()->getTexture(), 
-                                REFLECTIVE_MAP_UNIT,  (usePredefTexUnit ? REFLECTIVE_MAP_UNIT : unit++), "lambert", "reflective");
+                            if(l->getReflectivity() != NULL && l->getReflectivity()->getFloat() != NULL )
+                            {
+                                std::stringstream ss;
+                                domFloat f = l->getReflectivity()->getFloat()->getValue();
+                                ss << f ;
+                                stateset->setUserValue("lambert_reflective_amount", ss.str());
+                            }
                         }
-                    }
-                    if(l->getReflectivity())
-                    {
-                        if(l->getReflectivity() != NULL && l->getReflectivity()->getFloat() != NULL )
-                        {
-                            std::stringstream ss;
-                            domFloat f = l->getReflectivity()->getFloat()->getValue();
-                            ss << f ;
-                            stateset->setUserValue("lambert_reflective_amount", ss.str());
-                        }
-                    }
                     
-                    // translucency "Determining Transparency" in 1.4.1 spec				
-                    if(l->getTransparent())
-                    {
-                        unit = transparencyMetaData("lambert", unit, stateset,  l->getTransparent(), l->getTransparency());
+                        // translucency "Determining Transparency" in 1.4.1 spec				
+                        if(l->getTransparent())
+                        {
+                            unit = transparencyMetaData("lambert", unit, stateset,  l->getTransparent(), l->getTransparency());
+                        }
                     }
                 }
             }
