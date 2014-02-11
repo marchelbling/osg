@@ -13,9 +13,11 @@
 #include <string>
 #include <set>
 #include <fstream>
+#include <sstream>
 
 #include <osg/NodeVisitor>
 #include <osg/Texture2D>
+#include <osg/Image>
 #include <osg/StateSet>
 #include <osg/Geode>
 #include <osg/ValueObject>
@@ -23,29 +25,57 @@
 #include <osgDB/ReaderWriter>
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
+#include <osgDB/WriteFile>
 #include <osgDB/Registry>
 
 
 class MetadataExtractor : public osg::NodeVisitor
 {
 public:
-    MetadataExtractor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+    MetadataExtractor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+                          _orphanTextureId(0)
+    {}
 
     void applyStateSet(osg::StateSet* ss)
     {
         if (ss) {
             if(_source.empty()) ss->getUserValue("source_tool", _source);
 
-            for (int i = 0; i < 32; ++i) {
-                osg::Texture2D* tex = dynamic_cast<osg::Texture2D*>(ss->getTextureAttribute(i, osg::StateAttribute::TEXTURE));
+            int textureListSize = ss->getTextureAttributeList().size();
+            for (int i = 0 ; i < textureListSize ; ++i) {
+                osg::Texture2D* tex = dynamic_cast<osg::Texture2D*>(
+                                                      ss->getTextureAttribute(i, osg::StateAttribute::TEXTURE));
                 if (tex && tex->getImage()) {
-                    std::string fileName = tex->getImage()->getFileName();
-                    if (!fileName.empty()) {
-                        _textures.insert(osgDB::findDataFile( fileName ));
+                    osg::Image* image = tex->getImage();
+                    std::string fileName = image->getFileName();
+
+                    if(fileName.empty())
+                    {
+                      fileName = createTextureFileName();
+                      image->setFileName(fileName);
                     }
+
+                    if(!osgDB::fileExists(fileName))
+                    {
+                      // need to dump image on disk
+                      osgDB::writeImageFile(*image, fileName);
+                      // alter stateset to reference external file
+                      image->setWriteHint(osg::Image::EXTERNAL_FILE);
+                    }
+
+                    _textures.insert(osgDB::findDataFile( fileName ));
                 }
             }
         }
+    }
+
+    std::string createTextureFileName()
+    {
+        std::ostringstream name;
+        name << "skfb_texture_extract_" << _orphanTextureId << ".jpg";
+        ++ _orphanTextureId;
+
+        return name.str();
     }
 
     void apply(osg::Geode& node) {
@@ -77,9 +107,10 @@ public:
     }
 
 
-protected:
-    std::set<std::string> _textures;
-    std::string _source;
+    protected:
+        int _orphanTextureId;
+        std::set<std::string> _textures;
+        std::string _source;
 };
 
 
