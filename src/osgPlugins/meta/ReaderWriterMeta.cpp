@@ -14,6 +14,7 @@
 #include <set>
 #include <fstream>
 #include <sstream>
+#include <utility> //pair
 
 #include <osg/NodeVisitor>
 #include <osg/Texture2D>
@@ -28,6 +29,7 @@
 #include <osgDB/WriteFile>
 #include <osgDB/Registry>
 
+#include "picojson.h"
 
 class MetadataExtractor : public osg::NodeVisitor
 {
@@ -98,12 +100,27 @@ public:
         traverse(node);
     }
 
-    void dumpMeta() {
-        std::ofstream metaFile("model_metadata");
-        metaFile << _source << std::endl; // output blank line if no source was found
+    std::string getMetadataJson() const
+    {
+        picojson::object json;
+        json.insert( std::pair<std::string, picojson::value>("source",
+                                                              picojson::value(_source)) );
+
+        picojson::array texArray;
         for(std::set<std::string>::const_iterator tex = _textures.begin() ;
             tex != _textures.end() ; ++ tex)
-            metaFile << *tex << std::endl;
+            texArray.push_back(picojson::value(*tex));
+
+        json.insert( std::pair<std::string, picojson::value>("textures",
+                                                              picojson::value(texArray)) );
+
+        return picojson::value(json).serialize();
+    }
+
+    void dumpMeta() const
+    {
+        std::ofstream metaFile("meta.json");
+        metaFile << getMetadataJson() << std::endl;
     }
 
 
