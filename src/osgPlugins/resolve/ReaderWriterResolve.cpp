@@ -10,63 +10,56 @@
  *
 */
 
+#include <fstream>
+#include <map>
+#include <string>
+#include <iterator>
+
 #include <osg/NodeVisitor>
 #include <osg/Texture2D>
 #include <osg/StateSet>
 #include <osg/Geode>
-#include <string>
 #include <osgDB/ReadFile>
 #include <osgDB/ReaderWriter>
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 
+#include "picojson.h"
+
 class ResolveImageFilename : public osg::NodeVisitor
 {
 public:
-    ResolveImageFilename() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+    ResolveImageFilename() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+    {
+        _textureMapper = extractTextureMapFromJsonMetadata();
+    }
 
-    void applyStateSet(osg::StateSet* ss) 
+    void applyStateSet(osg::StateSet* ss)
     {
         if (ss) {
-            for (int i = 0; i < 32; ++i) {
-                osg::Texture2D* tex = dynamic_cast<osg::Texture2D*>(ss->getTextureAttribute(i, osg::StateAttribute::TEXTURE));
+            int textureListSize = ss->getTextureAttributeList().size();
+            for (int i = 0 ; i < textureListSize ; ++i) {
+                osg::Texture2D* tex = dynamic_cast<osg::Texture2D*>(
+                                                      ss->getTextureAttribute(i, osg::StateAttribute::TEXTURE));
                 if (tex && tex->getImage()) {
-                    std::string ss = tex->getImage()->getFileName();
-                    if (!ss.empty()) {
-                        std::string fileName = osgDB::findDataFile( ss );
-
-                        // special case for dds, we dont support it so try to load png / jpg instead
-                        std::string extImage = osgDB::getLowerCaseFileExtension(fileName);
-                        if (extImage == "dds" || extImage == "tga" || extImage == "tif" || extImage == "tiff" || extImage == "vtf") {
-                            bool foundAlternateFile = false;
-
-                            if (!osgDB::findDataFile(fileName+".jpg").empty()) {
-                                fileName += ".jpg";
-                                foundAlternateFile = true;
-                                osg::notify(osg::NOTICE) << "found " << extImage << " texture, try to use " << fileName << ".jpg instead" << std::endl;
-
-                            } else if (!osgDB::findDataFile(fileName+".png").empty()) {
-                                fileName += ".png";
-                                foundAlternateFile = true;
-                                osg::notify(osg::NOTICE) << "found " << extImage << " texture, try to use " << fileName << ".jpg instead" << std::endl;
-
-                            }
-                            if (foundAlternateFile) {
-                                osg::notify(osg::NOTICE) << "found " << extImage << " texture, will use " << fileName << " instead" << std::endl;
-                            } else {
-                                osg::notify(osg::WARN) << "found " << extImage << " texture, and no valid alternate image" << std::endl;
-                            }
-                        }
-
-
-
-                        tex->getImage()->setFileName(fileName);
+                    osg::Image* image = tex->getImage();
+                    std::string fileName = image->getFileName();
+                    std::map<std::string, std::string>::const_iterator mappedNameIt = _textureMapper.find(fileName);
+                    if(mappedNameIt != _textureMapper.end())
+                    {
+                        image->setFileName(mappedNameIt->second);
+                    }
+                    else
+                    {
+                        exit(1); // this should never happen as all
+                                 // textures should have been treated
                     }
                 }
             }
         }
     }
+
     void apply(osg::Geode& node) {
         osg::StateSet* ss = node.getStateSet();
         if (ss)
@@ -86,6 +79,49 @@ public:
             applyStateSet(ss);
         traverse(node);
     }
+
+    std::map<std::string, std::string> extractTextureMapFromJsonMetadata()
+    {
+        std::ifstream json("meta.json");
+        std::istream_iterator<char> input(json);
+
+        picojson::value v;
+        std::string err;
+        picojson::parse(v, input, std::istream_iterator<char>(), &err);
+
+        if (! err.empty()) std::cerr << err << std::endl;
+
+        std::map<std::string, std::string> mapping;
+        if(v.is<picojson::object>())
+        {
+            const picojson::object& hash = v.get<picojson::object>();
+            picojson::object::const_iterator texture_values = hash.find("textures");
+            if(texture_values != hash.end())
+            {
+                if(texture_values->second.is<picojson::array>())
+                {
+                    picojson::array textures = texture_values->second.get<picojson::array>();
+                    for(picojson::array::const_iterator texture = textures.begin() ;
+                        texture != textures.end() ; ++ texture)
+                    {
+                        std::string texture_name = texture->to_str();
+                        picojson::object::const_iterator tex = hash.find(texture_name);
+                        if(tex != hash.end())
+                        {
+                            std::string key   = tex->first;
+                            std::string value = tex->second.to_str();
+                            mapping.insert(std::pair<std::string, std::string>(key, value));
+                        }
+                    }
+                }
+            }
+
+        }
+        return mapping;
+    }
+
+    protected:
+        std::map<std::string, std::string> _textureMapper;
 };
 
 
