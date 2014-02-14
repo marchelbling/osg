@@ -30,9 +30,9 @@
 class ResolveImageFilename : public osg::NodeVisitor
 {
 public:
-    ResolveImageFilename() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+    ResolveImageFilename(std::string const& path) : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
     {
-        _textureMapper = extractTextureMapFromJsonMetadata();
+        _textureMapper = extractTextureMapFromJsonMetadata(path);
     }
 
     void applyStateSet(osg::StateSet* ss)
@@ -80,9 +80,9 @@ public:
         traverse(node);
     }
 
-    std::map<std::string, std::string> extractTextureMapFromJsonMetadata()
+    std::map<std::string, std::string> extractTextureMapFromJsonMetadata(std::string const& path)
     {
-        std::ifstream json("meta.json");
+        std::ifstream json(path.c_str());
         std::istream_iterator<char> input(json);
 
         picojson::value v;
@@ -128,11 +128,20 @@ public:
 class ReaderWriterResolve : public osgDB::ReaderWriter
 {
 public:
+    struct OptionsStruct {
+        std::string input;
+
+        OptionsStruct() {
+            input = "meta.json";
+        }
+    };
+
     ReaderWriterResolve()
     {
-        supportsExtension("resolve","Resolve image filename Psuedo loader.");
+        supportsExtension("resolve","Resolve image filename Pseudo loader.");
+        supportsOption("input","Path from where metadata json file should be read");
     }
-    
+
     virtual const char* className() const { return "ReaderWriterResolve"; }
 
 
@@ -146,6 +155,8 @@ public:
         if ( subLocation.empty() )
             return ReadResult::FILE_NOT_HANDLED;
 
+        OptionsStruct _options;
+        _options = parseOptions(options);
 
         // recursively load the subfile.
         osg::ref_ptr<osg::Node> node = osgDB::readNodeFile( subLocation, options );
@@ -156,9 +167,40 @@ public:
             return ReadResult::FILE_NOT_HANDLED;
         }
 
-        ResolveImageFilename visitor;
+        ResolveImageFilename visitor(_options.input);
         node->accept(visitor);
         return node.release();
+    }
+
+    ReaderWriterResolve::OptionsStruct parseOptions(const osgDB::ReaderWriter::Options* options) const
+    {
+        OptionsStruct localOptions;
+
+        if (options)
+        {
+            osg::notify(osg::NOTICE) << "options " << options->getOptionString() << std::endl;
+            std::istringstream iss(options->getOptionString());
+            std::string opt;
+            while (iss >> opt)
+            {
+                // split opt into pre= and post=
+                std::string pre_equals;
+                std::string post_equals;
+
+                size_t found = opt.find("=");
+                if(found != std::string::npos)
+                {
+                    pre_equals = opt.substr(0,found);
+                    post_equals = opt.substr(found+1);
+                }
+                else
+                    pre_equals = opt;
+
+                if (pre_equals == "input")
+                    localOptions.input = post_equals;
+            }
+        }
+        return localOptions;
     }
 };
 
