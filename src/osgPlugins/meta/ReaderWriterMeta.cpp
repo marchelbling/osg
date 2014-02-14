@@ -138,9 +138,9 @@ public:
         return picojson::value(json).serialize();
     }
 
-    void dumpMeta() const
+    void dumpMeta(std::string const& output) const
     {
-        std::ofstream metaFile("meta.json");
+        std::ofstream metaFile(output.c_str());
         metaFile << getMetadataJson() << std::endl;
     }
 
@@ -158,9 +158,11 @@ class ReaderWriterMeta : public osgDB::ReaderWriter
 public:
     struct OptionsStruct {
         bool useRelativePath;
+        std::string output;
 
         OptionsStruct() {
             useRelativePath = false;
+            output = "meta.json";
         }
     };
 
@@ -168,6 +170,7 @@ public:
     {
         supportsExtension("meta","Pseudo-loader to extract model metadata.");
         supportsOption("useRelativePath","All path are relative to the model");
+        supportsOption("output","Path to where metadata json file should be written");
     }
 
     virtual const char* className() const { return "ReaderWriterMeta"; }
@@ -211,7 +214,7 @@ public:
         }
         MetadataExtractor visitor(path);
         node->accept(visitor);
-        visitor.dumpMeta();
+        visitor.dumpMeta(_options.output);
         return node.release();
     }
 
@@ -242,6 +245,8 @@ public:
 
                 if (pre_equals == "useRelativePath")
                     localOptions.useRelativePath = true;
+                else if (pre_equals == "output")
+                    localOptions.output = post_equals;
             }
         }
         return localOptions;
