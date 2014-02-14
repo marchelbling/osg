@@ -34,8 +34,10 @@
 class MetadataExtractor : public osg::NodeVisitor
 {
 public:
-    MetadataExtractor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
-                          _orphanTextureId(0)
+    MetadataExtractor(std::string path) :
+            osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
+            _modelDir(path),
+            _orphanTextureId(0)
     {}
 
     void applyStateSet(osg::StateSet* ss)
@@ -52,10 +54,7 @@ public:
                     std::string fileName = image->getFileName();
 
                     if(fileName.empty())
-                    {
                       fileName = createTextureFileName();
-                      image->setFileName(fileName);
-                    }
 
                     if(!osgDB::fileExists(fileName))
                     {
@@ -65,10 +64,32 @@ public:
                       image->setWriteHint(osg::Image::EXTERNAL_FILE);
                     }
 
-                    _textures.insert(osgDB::findDataFile( fileName ));
+                    std::string imagePath = getImagePath(fileName);
+                    image->setFileName(imagePath);
+                    _textures.insert(imagePath);
                 }
             }
         }
+    }
+
+    std::string getImagePath(std::string const& name)
+    {
+        std::string absolutePath = osgDB::findDataFile( name );
+        if(_modelDir.empty())
+            return absolutePath;
+
+        std::string relativePath = osgDB::getPathRelative(_modelDir,
+                                                          absolutePath);
+        // if textures are in a folder that is *not* a subfolder of
+        // _modelDir, osg adds a / at the beginning ot the path
+        // e.g.
+        // folder
+        //  L model / model.ext
+        //  L images / textures.png
+        //  gives /../images/textures.png instead of ../images/textures.png
+        while(!osgDB::fileExists(relativePath) && relativePath[0] == '/')
+            relativePath = relativePath.erase(0, 1);
+        return relativePath;
     }
 
     std::string createTextureFileName()
@@ -125,6 +146,7 @@ public:
 
 
     protected:
+        std::string _modelDir;
         int _orphanTextureId;
         std::set<std::string> _textures;
         std::string _source;
@@ -134,9 +156,18 @@ public:
 class ReaderWriterMeta : public osgDB::ReaderWriter
 {
 public:
+    struct OptionsStruct {
+        bool useRelativePath;
+
+        OptionsStruct() {
+            useRelativePath = false;
+        }
+    };
+
     ReaderWriterMeta()
     {
         supportsExtension("meta","Pseudo-loader to extract model metadata.");
+        supportsOption("useRelativePath","All path are relative to the model");
     }
 
     virtual const char* className() const { return "ReaderWriterMeta"; }
@@ -152,6 +183,8 @@ public:
         if ( subLocation.empty() )
             return ReadResult::FILE_NOT_HANDLED;
 
+        OptionsStruct _options;
+        _options = parseOptions(options);
 
         // recursively load the subfile.
         osg::ref_ptr<osg::Node> node = osgDB::readNodeFile( subLocation, options );
@@ -162,10 +195,56 @@ public:
             return ReadResult::FILE_NOT_HANDLED;
         }
 
-        MetadataExtractor visitor;
+        // look for physical file
+        std::string path;
+        
+        if(_options.useRelativePath)
+        {
+            std::string name(fileName);
+            do
+            {
+                path = osgDB::findDataFile(name);
+                name = osgDB::getNameLessExtension(name);
+            }
+            while(!osgDB::fileExists(path));
+            path = osgDB::getFilePath(osgDB::getRealPath(path));
+        }
+        MetadataExtractor visitor(path);
         node->accept(visitor);
         visitor.dumpMeta();
         return node.release();
+    }
+
+
+    ReaderWriterMeta::OptionsStruct parseOptions(const osgDB::ReaderWriter::Options* options) const
+    {
+        OptionsStruct localOptions;
+
+        if (options)
+        {
+            osg::notify(osg::NOTICE) << "options " << options->getOptionString() << std::endl;
+            std::istringstream iss(options->getOptionString());
+            std::string opt;
+            while (iss >> opt)
+            {
+                // split opt into pre= and post=
+                std::string pre_equals;
+                std::string post_equals;
+
+                size_t found = opt.find("=");
+                if(found != std::string::npos)
+                {
+                    pre_equals = opt.substr(0,found);
+                    post_equals = opt.substr(found+1);
+                } 
+                else
+                    pre_equals = opt;
+
+                if (pre_equals == "useRelativePath")
+                    localOptions.useRelativePath = true;
+            }
+        }
+        return localOptions;
     }
 };
 
