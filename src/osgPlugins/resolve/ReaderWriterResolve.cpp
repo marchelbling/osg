@@ -83,11 +83,13 @@ public:
     std::map<std::string, std::string> extractTextureMapFromJsonMetadata(std::string const& path)
     {
         std::ifstream json(path.c_str());
-        std::istream_iterator<char> input(json);
+        std::string content((std::istreambuf_iterator<char>(json)),
+                             std::istreambuf_iterator<char>());
 
         picojson::value v;
         std::string err;
-        picojson::parse(v, input, std::istream_iterator<char>(), &err);
+        picojson::parse(v, content.c_str(), content.c_str() + content.size(), &err);
+
 
         if (! err.empty()) std::cerr << err << std::endl;
 
