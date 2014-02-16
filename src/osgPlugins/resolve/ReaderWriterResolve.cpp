@@ -95,23 +95,18 @@ public:
         if(v.is<picojson::object>())
         {
             const picojson::object& hash = v.get<picojson::object>();
-            picojson::object::const_iterator texture_values = hash.find("textures");
-            if(texture_values != hash.end())
+            picojson::object::const_iterator resolve = hash.find("resolve");
+            if(resolve != hash.end())
             {
-                if(texture_values->second.is<picojson::array>())
+                if(resolve->second.is<picojson::object>())
                 {
-                    picojson::array textures = texture_values->second.get<picojson::array>();
-                    for(picojson::array::const_iterator texture = textures.begin() ;
-                        texture != textures.end() ; ++ texture)
+                    picojson::object remapping = resolve->second.get<picojson::object>();
+                    for(picojson::object::const_iterator remap = remapping.begin() ;
+                        remap != remapping.end() ; ++ remap)
                     {
-                        std::string texture_name = texture->to_str();
-                        picojson::object::const_iterator tex = hash.find(texture_name);
-                        if(tex != hash.end())
-                        {
-                            std::string key   = tex->first;
-                            std::string value = tex->second.to_str();
-                            mapping.insert(std::pair<std::string, std::string>(key, value));
-                        }
+                        std::string key   = remap->first;
+                        std::string value = remap->second.to_str();
+                        mapping.insert(std::pair<std::string, std::string>(key, value));
                     }
                 }
             }
