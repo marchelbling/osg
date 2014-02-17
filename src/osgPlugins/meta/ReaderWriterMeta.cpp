@@ -31,10 +31,13 @@
 
 #include "picojson.h"
 
-class MetadataExtractor : public osg::NodeVisitor
+class MetaDataExtractor : public osg::NodeVisitor
 {
 public:
-    MetadataExtractor(std::string path) :
+    typedef std::set<std::string> texture_set;
+    typedef std::pair<std::string, picojson::value> json_object_pair;
+
+    MetaDataExtractor(std::string path) :
             osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
             _modelDir(path),
             _orphanTextureId(0)
@@ -101,7 +104,8 @@ public:
         return name.str();
     }
 
-    void apply(osg::Geode& node) {
+    void apply(osg::Geode& node)
+    {
         osg::StateSet* ss = node.getStateSet();
         if (ss)
             applyStateSet(ss);
@@ -114,42 +118,40 @@ public:
         traverse(node);
     }
 
-    void apply(osg::Node& node) {
+    void apply(osg::Node& node)
+    {
         osg::StateSet* ss = node.getStateSet();
         if (ss)
             applyStateSet(ss);
         traverse(node);
     }
 
-    std::string getMetadataJson() const
+    std::string getMetaDataJson() const
     {
         picojson::object json;
-        json.insert( std::pair<std::string, picojson::value>("source",
-                                                              picojson::value(_source)) );
+        json.insert(json_object_pair("source", picojson::value(_source)));
 
         picojson::array texArray;
-        for(std::set<std::string>::const_iterator tex = _textures.begin() ;
+        for(texture_set::const_iterator tex = _textures.begin() ;
             tex != _textures.end() ; ++ tex)
             texArray.push_back(picojson::value(*tex));
 
-        json.insert( std::pair<std::string, picojson::value>("textures",
-                                                              picojson::value(texArray)) );
-
+        json.insert(json_object_pair("textures", picojson::value(texArray)));
         return picojson::value(json).serialize();
     }
 
     void dumpMeta(std::string const& output) const
     {
         std::ofstream metaFile(output.c_str());
-        metaFile << getMetadataJson() << std::endl;
+        metaFile << getMetaDataJson() << std::endl;
     }
 
 
-    protected:
-        std::string _modelDir;
-        int _orphanTextureId;
-        std::set<std::string> _textures;
-        std::string _source;
+protected:
+    std::string _modelDir;
+    int _orphanTextureId;
+    texture_set _textures;
+    std::string _source;
 };
 
 
@@ -212,7 +214,7 @@ public:
             while(!osgDB::fileExists(path));
             path = osgDB::getFilePath(osgDB::getRealPath(path));
         }
-        MetadataExtractor visitor(path);
+        MetaDataExtractor visitor(path);
         node->accept(visitor);
         visitor.dumpMeta(_options.output);
         return node.release();
