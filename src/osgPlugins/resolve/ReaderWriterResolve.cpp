@@ -30,9 +30,12 @@
 class ResolveImageFilename : public osg::NodeVisitor
 {
 public:
+    typedef std::map<std::string, std::string> resolve_map;
+    typedef std::pair<std::string, std::string> resolve_pair;
+
     ResolveImageFilename(std::string const& path) : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
     {
-        _textureMapper = extractTextureMapFromJsonMetadata(path);
+        _textureMapper = extractTextureMapFromJsonMetaData(path);
     }
 
     void applyStateSet(osg::StateSet* ss)
@@ -45,15 +48,17 @@ public:
                 if (tex && tex->getImage()) {
                     osg::Image* image = tex->getImage();
                     std::string fileName = image->getFileName();
-                    std::map<std::string, std::string>::const_iterator mappedNameIt = _textureMapper.find(fileName);
+                    resolve_map::const_iterator mappedNameIt = _textureMapper.find(fileName);
                     if(mappedNameIt != _textureMapper.end())
                     {
                         image->setFileName(mappedNameIt->second);
                     }
                     else
                     {
+                        std::cout << "Resolve pseudo-loader error while remapping '" << mappedNameIt->first
+                                  << "' to '" << mappedNameIt->second <<"'" << std::endl;
                         exit(1); // this should never happen as all
-                                 // textures should have been treated
+                                 // textures should have been treated previously
                     }
                 }
             }
@@ -80,7 +85,7 @@ public:
         traverse(node);
     }
 
-    std::map<std::string, std::string> extractTextureMapFromJsonMetadata(std::string const& path)
+    resolve_map extractTextureMapFromJsonMetaData(std::string const& path)
     {
         std::ifstream json(path.c_str());
         std::string content((std::istreambuf_iterator<char>(json)),
@@ -93,7 +98,7 @@ public:
 
         if (! err.empty()) std::cerr << err << std::endl;
 
-        std::map<std::string, std::string> mapping;
+        resolve_map mapping;
         if(v.is<picojson::object>())
         {
             const picojson::object& hash = v.get<picojson::object>();
@@ -108,7 +113,7 @@ public:
                     {
                         std::string key   = remap->first;
                         std::string value = remap->second.to_str();
-                        mapping.insert(std::pair<std::string, std::string>(key, value));
+                        mapping.insert(resolve_pair(key, value));
                     }
                 }
             }
@@ -117,8 +122,8 @@ public:
         return mapping;
     }
 
-    protected:
-        std::map<std::string, std::string> _textureMapper;
+protected:
+    resolve_map _textureMapper;
 };
 
 
