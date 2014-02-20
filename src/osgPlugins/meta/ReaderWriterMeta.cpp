@@ -60,7 +60,7 @@ public:
                     if(fileName.empty())
                       fileName = createTextureFileName();
 
-                    if(!osgDB::fileExists(fileName))
+                    if(osgDB::findDataFile(fileName).empty())
                     {
                       // need to dump image on disk
                       osgDB::writeImageFile(*image, fileName);
@@ -91,7 +91,8 @@ public:
         //  L model / model.ext
         //  L images / textures.png
         //  gives /../images/textures.png instead of ../images/textures.png
-        while(!osgDB::fileExists(relativePath) && relativePath[0] == '/')
+        while(osgDB::findDataFile(relativePath).empty() &&
+              relativePath[0] == '/')
             relativePath = relativePath.erase(0, 1);
         return relativePath;
     }
