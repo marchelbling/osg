@@ -37,9 +37,10 @@ public:
     typedef std::set<std::string> texture_set;
     typedef std::pair<std::string, picojson::value> json_object_pair;
 
-    MetaDataExtractor(std::string path) :
+    MetaDataExtractor(std::string modelDir, bool useRelativePath) :
             osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
-            _modelDir(path),
+            _modelDir(modelDir),
+            _useRelativePath(useRelativePath),
             _orphanTextureId(0)
     {}
 
@@ -77,8 +78,8 @@ public:
 
     std::string getImagePath(std::string const& name)
     {
-        std::string absolutePath = osgDB::findDataFile( name );
-        if(_modelDir.empty())
+        std::string absolutePath = osgDB::findDataFile(name);
+        if(!_useRelativePath)
             return absolutePath;
 
         std::string relativePath = osgDB::getPathRelative(_modelDir,
@@ -101,7 +102,7 @@ public:
         name << "skfb_texture_extract_" << _orphanTextureId << ".jpg";
         ++ _orphanTextureId;
 
-        return name.str();
+        return osgDB::concatPaths(_modelDir, name.str());
     }
 
     void apply(osg::Geode& node)
@@ -149,6 +150,7 @@ public:
 
 protected:
     std::string _modelDir;
+    bool _useRelativePath;
     int _orphanTextureId;
     texture_set _textures;
     std::string _source;
@@ -202,21 +204,20 @@ public:
 
         // look for physical file
         std::string path;
-        
-        if(_options.useRelativePath)
+        std::string name(fileName);
+        do
         {
-            std::string name(fileName);
-            do
-            {
-                path = osgDB::findDataFile(name);
-                name = osgDB::getNameLessExtension(name);
-            }
-            while(!osgDB::fileExists(path));
-            path = osgDB::getFilePath(osgDB::getRealPath(path));
+            path = osgDB::findDataFile(name);
+            name = osgDB::getNameLessExtension(name);
         }
-        MetaDataExtractor visitor(path);
+        while(!osgDB::fileExists(path)); // path is an absolute path
+
+
+        std::string modelDir = osgDB::getFilePath(path);
+        MetaDataExtractor visitor(modelDir, _options.useRelativePath);
         node->accept(visitor);
         visitor.dumpMeta(_options.output);
+
         return node.release();
     }
 
@@ -241,7 +242,7 @@ public:
                 {
                     pre_equals = opt.substr(0,found);
                     post_equals = opt.substr(found+1);
-                } 
+                }
                 else
                     pre_equals = opt;
 
