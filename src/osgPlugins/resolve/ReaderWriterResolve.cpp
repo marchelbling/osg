@@ -48,17 +48,20 @@ public:
                 if (tex && tex->getImage()) {
                     osg::Image* image = tex->getImage();
                     std::string fileName = image->getFileName();
-                    resolve_map::const_iterator mappedNameIt = _textureMapper.find(fileName);
-                    if(mappedNameIt != _textureMapper.end())
+                    if(!fileName.empty())
                     {
-                        image->setFileName(mappedNameIt->second);
-                    }
-                    else
-                    {
-                        std::cout << "Resolve pseudo-loader error while remapping '" << mappedNameIt->first
-                                  << "' to '" << mappedNameIt->second <<"'" << std::endl;
-                        exit(1); // this should never happen as all
-                                 // textures should have been treated previously
+                        resolve_map::const_iterator mappedNameIt = _textureMapper.find(fileName);
+                        if(mappedNameIt != _textureMapper.end())
+                        {
+                            image->setFileName(mappedNameIt->second);
+                        }
+                        else
+                        {
+                            std::cout << "Resolve pseudo-loader error while remapping '" << mappedNameIt->first
+                                      << "' to '" << mappedNameIt->second <<"'" << std::endl;
+                            exit(1); // this should never happen as all
+                                     // textures should have been treated previously
+                        }
                     }
                 }
             }
