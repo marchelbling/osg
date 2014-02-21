@@ -113,7 +113,12 @@ public:
                     {
                         std::string key   = remap->first;
                         std::string value = remap->second.to_str();
-                        mapping.insert(resolve_pair(key, value));
+                        mapping.insert(resolve_pair(key,   value));
+                        // To avoid issues if we traverse a same node multiple
+                        // times, we map the uuided image to itself. The other
+                        // solution would be to tag visited nodes but it's would
+                        // be more code for almost the same performance
+                        mapping.insert(resolve_pair(value, value));
                     }
                 }
             }
