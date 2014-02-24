@@ -10,6 +10,7 @@
 #include <osg/BlendFunc>
 #include <osgSim/ShapeAttribute>
 
+
 static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
     switch (mode) {
     case osg::BlendFunc::DST_ALPHA: return new JSONValue<std::string>("DST_ALPHA");
@@ -60,7 +61,8 @@ JSONObject* createImage(osg::Image* image, const std::string &baseName)
         osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
         return new JSONValue<std::string>("/unknown.png");
     } else {
-		if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
+        std::string modelDir = osgDB::getFilePath(baseName);
+        if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
             int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
             int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
             bool needToResize = false;
@@ -71,7 +73,12 @@ JSONObject* createImage(osg::Image* image, const std::string &baseName)
                 // resize and rewrite image file
                 // CP: TODO resize should be done from external
                 image->ensureValidSizeForTexturing(2048); // 32768
-                osgDB::writeImageFile(*image, image->getFileName());
+                if(osgDB::isAbsolutePath(image->getFileName()))
+                    osgDB::writeImageFile(*image, image->getFileName());
+                else
+                    osgDB::writeImageFile(*image,
+                                          osgDB::concatPaths(modelDir,
+                                                             image->getFileName()));
             }
             return new JSONValue<std::string>(image->getFileName());
         } else {
@@ -79,7 +86,7 @@ JSONObject* createImage(osg::Image* image, const std::string &baseName)
 			std::string filename = image->getFileName();
 			if ( image->getFileName().empty() ){
 				std::stringstream ss;
-				ss << osgDB::getFilePath(baseName) << osgDB::getNativePathSeparator();
+				ss << modelDir << osgDB::getNativePathSeparator();
 				ss << (long int)image <<   ".inline_conv_generated.png"; // write the pointer location
 				filename = ss.str();
 			}
