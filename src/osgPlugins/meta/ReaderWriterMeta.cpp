@@ -56,7 +56,12 @@ public:
                 if (tex && tex->getImage()) {
                     osg::Image* image = tex->getImage();
                     std::string fileName = image->getFileName();
+                    if(_textures.find(fileName) != _textures.end()) continue;
 
+                    osg::notify(osg::NOTICE) << "* image: " << fileName
+                                             << "  [width:" << image->s() << "x"
+                                             << "  height:" << image->t() << "]"
+                                             << std::endl;
                     if(fileName.empty())
                       fileName = createTextureFileName();
 
