@@ -47,21 +47,19 @@ public:
                                                       ss->getTextureAttribute(i, osg::StateAttribute::TEXTURE));
                 if (tex && tex->getImage()) {
                     osg::Image* image = tex->getImage();
+                    // ForceReadingImage should be passed as osgconv option to always
+                    // retrieve the original filename even if osg cannot load said image
                     std::string fileName = image->getFileName();
-                    if(!fileName.empty())
+                    resolve_map::const_iterator mappedNameIt = _textureMapper.find(fileName);
+                    if(mappedNameIt != _textureMapper.end())
                     {
-                        resolve_map::const_iterator mappedNameIt = _textureMapper.find(fileName);
-                        if(mappedNameIt != _textureMapper.end())
-                        {
-                            image->setFileName(mappedNameIt->second);
-                        }
-                        else
-                        {
-                            std::cout << "Resolve pseudo-loader error while remapping '" << mappedNameIt->first
-                                      << "' to '" << mappedNameIt->second <<"'" << std::endl;
-                            exit(1); // this should never happen as all
-                                     // textures should have been treated previously
-                        }
+                        // change name to uuid
+                        image->setFileName(mappedNameIt->second);
+                    }
+                    else
+                    {
+                        // image file is not valid
+                        ss->removeTextureAttribute(i, osg::StateAttribute::TEXTURE);
                     }
                 }
             }
@@ -114,14 +112,19 @@ public:
                     for(picojson::object::const_iterator remap = remapping.begin() ;
                         remap != remapping.end() ; ++ remap)
                     {
-                        std::string key   = remap->first;
-                        std::string value = remap->second.to_str();
-                        mapping.insert(resolve_pair(key,   value));
-                        // To avoid issues if we traverse a same node multiple
-                        // times, we map the uuided image to itself. The other
-                        // solution would be to tag visited nodes but it's would
-                        // be more code for almost the same performance
-                        mapping.insert(resolve_pair(value, value));
+                        // if image conversion failed, we should *not*
+                        // keep a reference to the image so it won't be remapped
+                        if(!remap->second.is<picojson::null>())
+                        {
+                            std::string key   = remap->first;
+                            std::string value = remap->second.to_str();
+                            mapping.insert(resolve_pair(key,   value));
+                            // To avoid issues if we traverse a same node multiple
+                            // times, we map the uuided image to itself. The other
+                            // solution would be to tag visited nodes but it's would
+                            // be more code for almost the same performance
+                            mapping.insert(resolve_pair(value, value));
+                        }
                     }
                 }
             }
