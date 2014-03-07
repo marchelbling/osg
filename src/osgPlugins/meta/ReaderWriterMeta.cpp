@@ -56,12 +56,13 @@ public:
                 if (tex && tex->getImage()) {
                     osg::Image* image = tex->getImage();
                     std::string fileName = image->getFileName();
-                    if(_textures.find(fileName) != _textures.end()) continue;
-
-                    osg::notify(osg::NOTICE) << "* image: " << fileName
-                                             << "  [width:" << image->s() << "x"
-                                             << "  height:" << image->t() << "]"
+                    osg::notify(osg::NOTICE) << "* image: '" << fileName << "' "
+                                             << "[width:" << image->s() << " x "
+                                             << "height:" << image->t() << "]"
                                              << std::endl;
+                    // ForceReadingImage should be passed as osgconv option
+                    // so that we always have the original filename even for
+                    // unreadable images (when converting osg2 models)
                     if(fileName.empty())
                       fileName = createTextureFileName();
 
@@ -84,6 +85,9 @@ public:
     std::string getImagePath(std::string const& name)
     {
         std::string absolutePath = osgDB::findDataFile(name);
+        if(absolutePath.empty()) // if image is missing we still need a path
+            absolutePath = osgDB::concatPaths(_modelDir, name);
+
         if(!_useRelativePath)
             return absolutePath;
 
