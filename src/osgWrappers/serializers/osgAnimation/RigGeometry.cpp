@@ -5,7 +5,9 @@
 
 static bool checkInfluenceMap( const osgAnimation::RigGeometry& geom )
 {
-    return geom.getInfluenceMap()->size()>0;
+    if(geom.getInfluenceMap())
+        return geom.getInfluenceMap()->size()>0;
+    return false;
 }
 
 static bool readInfluenceMap( osgDB::InputStream& is, osgAnimation::RigGeometry& geom )

@@ -522,6 +522,12 @@ bool Model::readMTL(std::istream& fin, const osgDB::ReaderWriter::Options* optio
                         type = Material::Map::NORMAL;
                     material->maps.push_back(parseTextureMap(filename,type));
                 }
+                // occlusion map
+                else if (strncmp(line, "occlusion ",10)==0 || strncmp(line, "map_occlusion ",14)==0 || strncmp(line,"map_Occlusion ",14)==0)
+                {
+                    std::string filename = strip(strchr(line, ' '));
+                    material->maps.push_back(parseTextureMap(filename, Material::Map::OCCLUSION));
+                }
                 // displacement map
                 else if (strncmp(line,"disp ",5)==0)
                 {

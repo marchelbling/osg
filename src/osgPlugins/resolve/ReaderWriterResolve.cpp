@@ -10,63 +10,62 @@
  *
 */
 
+#include <fstream>
+#include <map>
+#include <string>
+#include <iterator>
+
 #include <osg/NodeVisitor>
 #include <osg/Texture2D>
 #include <osg/StateSet>
 #include <osg/Geode>
-#include <string>
 #include <osgDB/ReadFile>
 #include <osgDB/ReaderWriter>
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 #include <osgDB/Registry>
 
+#include "picojson.h"
+
 class ResolveImageFilename : public osg::NodeVisitor
 {
 public:
-    ResolveImageFilename() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
+    typedef std::map<std::string, std::string> resolve_map;
+    typedef std::pair<std::string, std::string> resolve_pair;
 
-    void applyStateSet(osg::StateSet* ss) 
+    ResolveImageFilename(std::string const& path) : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+    {
+        _textureMapper = extractTextureMapFromJsonMetaData(path);
+    }
+
+    void applyStateSet(osg::StateSet* ss)
     {
         if (ss) {
-            for (int i = 0; i < 32; ++i) {
-                osg::Texture2D* tex = dynamic_cast<osg::Texture2D*>(ss->getTextureAttribute(i, osg::StateAttribute::TEXTURE));
+            int textureListSize = ss->getTextureAttributeList().size();
+            for (int i = 0 ; i < textureListSize ; ++i) {
+                osg::Texture2D* tex = dynamic_cast<osg::Texture2D*>(
+                                                      ss->getTextureAttribute(i, osg::StateAttribute::TEXTURE));
                 if (tex && tex->getImage()) {
-                    std::string ss = tex->getImage()->getFileName();
-                    if (!ss.empty()) {
-                        std::string fileName = osgDB::findDataFile( ss );
-
-                        // special case for dds, we dont support it so try to load png / jpg instead
-                        std::string extImage = osgDB::getLowerCaseFileExtension(fileName);
-                        if (extImage == "dds" || extImage == "tga" || extImage == "tif" || extImage == "tiff" || extImage == "vtf") {
-                            bool foundAlternateFile = false;
-
-                            if (!osgDB::findDataFile(fileName+".jpg").empty()) {
-                                fileName += ".jpg";
-                                foundAlternateFile = true;
-                                osg::notify(osg::NOTICE) << "found " << extImage << " texture, try to use " << fileName << ".jpg instead" << std::endl;
-
-                            } else if (!osgDB::findDataFile(fileName+".png").empty()) {
-                                fileName += ".png";
-                                foundAlternateFile = true;
-                                osg::notify(osg::NOTICE) << "found " << extImage << " texture, try to use " << fileName << ".jpg instead" << std::endl;
-
-                            }
-                            if (foundAlternateFile) {
-                                osg::notify(osg::NOTICE) << "found " << extImage << " texture, will use " << fileName << " instead" << std::endl;
-                            } else {
-                                osg::notify(osg::WARN) << "found " << extImage << " texture, and no valid alternate image" << std::endl;
-                            }
-                        }
-
-
-
-                        tex->getImage()->setFileName(fileName);
+                    osg::Image* image = tex->getImage();
+                    // ForceReadingImage should be passed as osgconv option to always
+                    // retrieve the original filename even if osg cannot load said image
+                    std::string fileName = image->getFileName();
+                    resolve_map::const_iterator mappedNameIt = _textureMapper.find(fileName);
+                    if(mappedNameIt != _textureMapper.end())
+                    {
+                        // change name to uuid
+                        image->setFileName(mappedNameIt->second);
+                    }
+                    else
+                    {
+                        // image file is not valid
+                        ss->removeTextureAttribute(i, osg::StateAttribute::TEXTURE);
                     }
                 }
             }
         }
     }
+
     void apply(osg::Geode& node) {
         osg::StateSet* ss = node.getStateSet();
         if (ss)
@@ -86,17 +85,76 @@ public:
             applyStateSet(ss);
         traverse(node);
     }
+
+    resolve_map extractTextureMapFromJsonMetaData(std::string const& path)
+    {
+        std::ifstream json(path.c_str());
+        std::string content((std::istreambuf_iterator<char>(json)),
+                             std::istreambuf_iterator<char>());
+
+        picojson::value v;
+        std::string err;
+        picojson::parse(v, content.c_str(), content.c_str() + content.size(), &err);
+
+
+        if (! err.empty()) std::cerr << err << std::endl;
+
+        resolve_map mapping;
+        if(v.is<picojson::object>())
+        {
+            const picojson::object& hash = v.get<picojson::object>();
+            picojson::object::const_iterator resolve = hash.find("resolve");
+            if(resolve != hash.end())
+            {
+                if(resolve->second.is<picojson::object>())
+                {
+                    picojson::object remapping = resolve->second.get<picojson::object>();
+                    for(picojson::object::const_iterator remap = remapping.begin() ;
+                        remap != remapping.end() ; ++ remap)
+                    {
+                        // if image conversion failed, we should *not*
+                        // keep a reference to the image so it won't be remapped
+                        if(!remap->second.is<picojson::null>())
+                        {
+                            std::string key   = remap->first;
+                            std::string value = remap->second.to_str();
+                            mapping.insert(resolve_pair(key,   value));
+                            // To avoid issues if we traverse a same node multiple
+                            // times, we map the uuided image to itself. The other
+                            // solution would be to tag visited nodes but it's would
+                            // be more code for almost the same performance
+                            mapping.insert(resolve_pair(value, value));
+                        }
+                    }
+                }
+            }
+
+        }
+        return mapping;
+    }
+
+protected:
+    resolve_map _textureMapper;
 };
 
 
 class ReaderWriterResolve : public osgDB::ReaderWriter
 {
 public:
+    struct OptionsStruct {
+        std::string input;
+
+        OptionsStruct() {
+            input = "meta.json";
+        }
+    };
+
     ReaderWriterResolve()
     {
-        supportsExtension("resolve","Resolve image filename Psuedo loader.");
+        supportsExtension("resolve","Resolve image filename Pseudo loader.");
+        supportsOption("input","Path from where metadata json file should be read");
     }
-    
+
     virtual const char* className() const { return "ReaderWriterResolve"; }
 
 
@@ -110,6 +168,8 @@ public:
         if ( subLocation.empty() )
             return ReadResult::FILE_NOT_HANDLED;
 
+        OptionsStruct _options;
+        _options = parseOptions(options);
 
         // recursively load the subfile.
         osg::ref_ptr<osg::Node> node = osgDB::readNodeFile( subLocation, options );
@@ -120,9 +180,40 @@ public:
             return ReadResult::FILE_NOT_HANDLED;
         }
 
-        ResolveImageFilename visitor;
+        ResolveImageFilename visitor(_options.input);
         node->accept(visitor);
         return node.release();
+    }
+
+    ReaderWriterResolve::OptionsStruct parseOptions(const osgDB::ReaderWriter::Options* options) const
+    {
+        OptionsStruct localOptions;
+
+        if (options)
+        {
+            osg::notify(osg::NOTICE) << "options " << options->getOptionString() << std::endl;
+            std::istringstream iss(options->getOptionString());
+            std::string opt;
+            while (iss >> opt)
+            {
+                // split opt into pre= and post=
+                std::string pre_equals;
+                std::string post_equals;
+
+                size_t found = opt.find("=");
+                if(found != std::string::npos)
+                {
+                    pre_equals = opt.substr(0,found);
+                    post_equals = opt.substr(found+1);
+                }
+                else
+                    pre_equals = opt;
+
+                if (pre_equals == "input")
+                    localOptions.input = post_equals;
+            }
+        }
+        return localOptions;
     }
 };
 

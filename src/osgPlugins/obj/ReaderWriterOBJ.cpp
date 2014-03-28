@@ -376,6 +376,10 @@ void ReaderWriterOBJ::saveMaterialToStateSetMetaData(obj::Material& material, os
                 std::stringstream ss;
                 ss << unit;
                 stateset.setUserValue("map_normal", ss.str());
+            } else if (material.maps[index].type == obj::Material::Map::OCCLUSION) {
+                std::stringstream ss;
+                ss << unit;
+                stateset.setUserValue("map_occlusion", ss.str());
             } else if (material.maps[index].type == obj::Material::Map::REFLECTION) {
                 std::stringstream ss;
                 ss << unit;
@@ -1023,6 +1027,7 @@ ReaderWriterOBJ::ObjOptionsStruct ReaderWriterOBJ::parseOptions(const osgDB::Rea
                 else if (pre_equals == "OPACITY")            type = obj::Material::Map::OPACITY;
                 else if (pre_equals == "BUMP")                type = obj::Material::Map::BUMP;
                 else if (pre_equals == "NORMAL")                type = obj::Material::Map::NORMAL;
+                else if (pre_equals == "OCCLUSION")                type = obj::Material::Map::OCCLUSION;
                 else if (pre_equals == "DISPLACEMENT")        type = obj::Material::Map::DISPLACEMENT;
                 else if (pre_equals == "REFLECTION")        type = obj::Material::Map::REFLECTION;
 
