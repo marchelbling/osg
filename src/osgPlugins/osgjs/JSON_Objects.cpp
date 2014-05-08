@@ -4,6 +4,7 @@
 
 #include "JSON_Objects"
 #include <osgDB/WriteFile>
+#include <osgDB/FileNameUtils>
 #include <osg/Material>
 #include <osg/BlendFunc>
 #include <osg/BlendColor>
@@ -200,7 +201,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
     str << JSONObjectBase::indent() << "\"" << type << "\"" << ": { " << std::endl;
     JSONObjectBase::level++;
     if (_useExternalBinaryArray) {
-        str << JSONObjectBase::indent() << "\"File\": \"" << url.str() << "\","<< std::endl;
+        str << JSONObjectBase::indent() << "\"File\": \"" << osgDB::getSimpleFileName(url.str()) << "\","<< std::endl;
     } else {
         if (array->getNumElements() == 0) {
             str << JSONObjectBase::indent() << "\"Elements\": [ ],";
