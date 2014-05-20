@@ -534,15 +534,19 @@ static void mergeTrianglesStrip(osg::Geometry& geom)
     }
     
     if (nbtristrip > 0) {
-        osg::notify(osg::NOTICE) << "found " << nbtristrip << " tristrip, total vertexes " << nbtristripVertexes << " should result to " << nbtristripVertexes + nbtristrip*2 << " after connection" << std::endl;
+        osg::notify(osg::NOTICE) << "found " << nbtristrip << " tristrip, "
+                                 << "total vertexes " << nbtristripVertexes
+                                 << " should result to " << nbtristripVertexes + nbtristrip*2
+                                 << " after connection" << std::endl;
+
         osg::DrawElementsUInt* ndw = new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLE_STRIP);
         for ( unsigned int i = 0; i < geom.getPrimitiveSetList().size(); i++) {
             osg::PrimitiveSet* ps = geom.getPrimitiveSetList()[i];
-            if (ps && ps->getMode() ==osg::PrimitiveSet::TRIANGLE_STRIP) {
+            if (ps && ps->getMode() == osg::PrimitiveSet::TRIANGLE_STRIP) {
                 osg::DrawElements* de = ps->getDrawElements();
                 if (de) {
                     // if connection needed insert degenerate triangles
-                    if (ndw->getNumIndices() != 0) {
+                    if (ndw->getNumIndices() != 0 && ndw->back() != de->getElement(0)) {
                         // duplicate last vertex
                         ndw->addElement(ndw->back());
                         // insert first vertex of next strip
@@ -557,11 +561,12 @@ static void mergeTrianglesStrip(osg::Geometry& geom)
                     for (unsigned int j = 0; j < de->getNumIndices(); j++) {
                         ndw->addElement(de->getElement(j));
                     }
-                } else if (ps->getType() == osg::PrimitiveSet::DrawArraysPrimitiveType ) {
+                }
+                else if (ps->getType() == osg::PrimitiveSet::DrawArraysPrimitiveType) {
                     // trip strip can generate drawarray of 5 elements we want to merge them too
                     osg::DrawArrays* da = dynamic_cast<osg::DrawArrays*> (ps);
                     // if connection needed insert degenerate triangles
-                    if (ndw->getNumIndices() != 0) {
+                    if (ndw->getNumIndices() != 0 && ndw->back() != da->getFirst()) {
                         // duplicate last vertex
                         ndw->addElement(ndw->back());
                         // insert first vertex of next strip
@@ -589,7 +594,7 @@ static void mergeTrianglesStrip(osg::Geometry& geom)
                 }
             }
         }
-        geom.getPrimitiveSetList().push_back(ndw);
+        geom.getPrimitiveSetList().insert(geom.getPrimitiveSetList().begin(), ndw);
     }
 }
 
