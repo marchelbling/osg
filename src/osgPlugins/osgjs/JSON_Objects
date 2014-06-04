@@ -155,13 +155,34 @@ struct JSONValue<std::string> : public JSONObject
 {
     std::string _value;
     JSONValue(const std::string& v) {
-        _value = v;
-        // replace invalid \ by /
-        std::replace(_value.begin(), _value.end(), '\\','/');
+        _value = json_escape(v);
     }
     void write(std::ostream& str, WriteVisitor& visitor) {
         str << '"' << _value  << '"';
     }
+
+    protected:
+        std::string json_escape(std::string const& input) {
+            std::string value = input;
+            replace(value, std::string("\\"), std::string("\\\\"));
+            replace(value, std::string("\""), std::string("\\\""));
+            replace(value, std::string("\b"), std::string("\\b"));
+            replace(value, std::string("\f"), std::string("\\f"));
+            replace(value, std::string("\n"), std::string("\\n"));
+            replace(value, std::string("\r"), std::string("\\r"));
+            replace(value, std::string("\t"), std::string("\\t"));
+            return value;
+        }
+
+        void replace(std::string& str, const std::string& from, const std::string& to) {
+            if(from.empty())
+                return;
+            size_t start_pos = 0;
+            while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+                str.replace(start_pos, from.length(), to);
+                start_pos += to.length();
+            }
+        }
 };
 
 
