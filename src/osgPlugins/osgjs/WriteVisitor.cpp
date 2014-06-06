@@ -55,24 +55,23 @@ static JSONValue<std::string>* getJSONFilterMode(osg::Texture::FilterMode mode)
     return 0;
 }
 
-JSONObject* createImage(osg::Image* image, const std::string &baseName)
+JSONObject* createImage(osg::Image* image, int maxTextureDimension, const std::string &baseName)
 {
     if (!image) {
         osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
         return new JSONValue<std::string>("/unknown.png");
     } else {
         std::string modelDir = osgDB::getFilePath(baseName);
-        if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
+        if (maxTextureDimension &&
+            !image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
             int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
             int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
-            bool needToResize = false;
-            if (new_s != image->s()) needToResize = true;
-            if (new_t != image->t()) needToResize = true;
-            
-            if (needToResize) {
-                // resize and rewrite image file
-                // CP: TODO resize should be done from external
-                image->ensureValidSizeForTexturing(2048); // 32768
+            bool notValidPowerOf2 = false;
+            if (new_s != image->s() || image->s() > maxTextureDimension) notValidPowerOf2 = true;
+            if (new_t != image->t() || image->t() > maxTextureDimension) notValidPowerOf2 = true;
+
+            if (notValidPowerOf2) {
+                image->ensureValidSizeForTexturing(maxTextureDimension);
                 if(osgDB::isAbsolutePath(image->getFileName()))
                     osgDB::writeImageFile(*image, image->getFileName());
                 else
@@ -527,12 +526,13 @@ JSONObject* WriteVisitor::createJSONLight(osg::Light* light)
     return jsonLight.release();
 }
 
-template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture, const std::string &baseName = "") 
+template <class T> JSONObject* createImageFromTexture(osg::Texture* texture, JSONObject* jsonTexture,
+                                                      int maxTextureDimension, const std::string &baseName = "")
 {
     T* text = dynamic_cast<T*>( texture);
     if (text) {
         translateObject(jsonTexture,text);
-        JSONObject* image = createImage(text->getImage(), baseName);
+        JSONObject* image = createImage(text->getImage(), maxTextureDimension, baseName);
         if (image)
             jsonTexture->getMaps()["File"] = image;
         return jsonTexture;
@@ -562,21 +562,24 @@ JSONObject* WriteVisitor::createJSONTexture(osg::Texture* texture)
 
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture, this->_baseName);
+        JSONObject* obj = createImageFromTexture<osg::Texture1D>(texture, jsonTexture,
+                                                                 this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture, this->_baseName);
+        JSONObject* obj = createImageFromTexture<osg::Texture2D>(texture, jsonTexture,
+                                                                 this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
     }
 
     {
-        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture, this->_baseName);
+        JSONObject* obj = createImageFromTexture<osg::TextureRectangle>(texture, jsonTexture,
+                                                                        this->_maxTextureDimension, this->_baseName);
         if (obj) {
             return obj;
         }
