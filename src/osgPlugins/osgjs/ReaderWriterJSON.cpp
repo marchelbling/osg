@@ -56,6 +56,7 @@ public:
          int tangentSpaceTextureUnit;
          bool disableTriStrip;
          bool disableMergeTriStrip;
+         int resizeTextureUpToPowerOf2;
          int triStripCacheSize;
          bool useDrawArray;
          bool enableWireframe;
@@ -67,6 +68,7 @@ public:
              tangentSpaceTextureUnit = 0;
              disableTriStrip = false;
              disableMergeTriStrip = false;
+             resizeTextureUpToPowerOf2 = 0;
              triStripCacheSize = 16;
              useDrawArray = false;
              enableWireframe = false;
@@ -84,13 +86,14 @@ public:
         supportsOption("tangentSpaceTextureUnit=<unit>","Specify on wich texture unit normal map is");
         supportsOption("triStripCacheSize=<int>","set the cache size when doing tristrip");
         supportsOption("disableMergeTriStrip","disable the merge of all tristrip into one");
+        supportsOption("resizeTextureUpToPowerOf2=<int>","Specify the maximum power of 2 allowed dimension for texture. Using 0 will disable the functionality and no image resizing will occur.");
         supportsOption("disableTriStrip","disable generation of tristrip");
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
         supportsOption("enableWireframe","create a wireframe geometry for each triangles geometry");
         supportsOption("useExternalBinaryArray","create binary files for vertex arrays");
         supportsOption("mergeAllBinaryFiles","merge all binary files into one to avoid multi request on a server");
     }
-        
+
     virtual const char* className() const { return "OSGJS json Writer"; }
 
     virtual ReadResult readNode(const std::string& fileName, const Options* options) const;
@@ -149,7 +152,7 @@ public:
         if (options.generateTangentSpace) {
             visitor.setTexCoordChannelForTangentSpace(options.tangentSpaceTextureUnit);
         }
-            
+
         visitor.setUseDrawArray(options.useDrawArray);
         visitor.setTripStripCacheSize(options.triStripCacheSize);
         visitor.setDisableTriStrip(options.disableTriStrip);
@@ -167,6 +170,7 @@ public:
             writer.setBaseName(basename);
             writer.useExternalBinaryArray(options.useExternalBinaryArray);
             writer.mergeAllBinaryFiles(options.mergeAllBinaryFiles);
+            writer.setMaxTextureDimension(options.resizeTextureUpToPowerOf2);
             model->accept(writer);
             if (writer._root.valid()) {
                 writer.write(fout);
@@ -199,7 +203,7 @@ public:
                 {
                     pre_equals = opt.substr(0,found);
                     post_equals = opt.substr(found+1);
-                } 
+                }
                 else
                 {
                     pre_equals = opt;
@@ -220,27 +224,31 @@ public:
                 if (pre_equals == "disableTriStrip")
                 {
                     localOptions.disableTriStrip = true;
-                }                
+                }
                 if (pre_equals == "generateTangentSpace")
                 {
                     localOptions.generateTangentSpace = true;
                 }
-                if (pre_equals == "useExternalBinaryArray") 
+                if (pre_equals == "useExternalBinaryArray")
                 {
                     localOptions.useExternalBinaryArray = true;
                 }
-                if (pre_equals == "mergeAllBinaryFiles") 
+                if (pre_equals == "mergeAllBinaryFiles")
                 {
                     localOptions.mergeAllBinaryFiles = true;
                 }
 
-                if (post_equals.length()>0)
-                {    
+                if (post_equals.length() > 0)
+                {
+                    int value = atoi(post_equals.c_str());
                     if (pre_equals == "tangentSpaceTextureUnit") {
-                        localOptions.tangentSpaceTextureUnit = atoi(post_equals.c_str());
+                        localOptions.tangentSpaceTextureUnit = value;
                     }
                     if (pre_equals == "triStripCacheSize") {
-                        localOptions.triStripCacheSize = atoi(post_equals.c_str());
+                        localOptions.triStripCacheSize = value;
+                    }
+                    if (pre_equals == "resizeTextureUpToPowerOf2") {
+                        localOptions.resizeTextureUpToPowerOf2 = osg::Image::computeNearestPowerOfTwo(value);
                     }
                 }
             }
