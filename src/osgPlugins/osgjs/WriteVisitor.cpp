@@ -62,22 +62,24 @@ JSONObject* createImage(osg::Image* image, int maxTextureDimension, const std::s
         return new JSONValue<std::string>("/unknown.png");
     } else {
         std::string modelDir = osgDB::getFilePath(baseName);
-        if (maxTextureDimension &&
-            !image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
-            int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
-            int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
-            bool notValidPowerOf2 = false;
-            if (new_s != image->s() || image->s() > maxTextureDimension) notValidPowerOf2 = true;
-            if (new_t != image->t() || image->t() > maxTextureDimension) notValidPowerOf2 = true;
+        if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
+            if(maxTextureDimension) {
+                int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
+                int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
 
-            if (notValidPowerOf2) {
-                image->ensureValidSizeForTexturing(maxTextureDimension);
-                if(osgDB::isAbsolutePath(image->getFileName()))
-                    osgDB::writeImageFile(*image, image->getFileName());
-                else
-                    osgDB::writeImageFile(*image,
-                                          osgDB::concatPaths(modelDir,
-                                                             image->getFileName()));
+                bool notValidPowerOf2 = false;
+                if (new_s != image->s() || image->s() > maxTextureDimension) notValidPowerOf2 = true;
+                if (new_t != image->t() || image->t() > maxTextureDimension) notValidPowerOf2 = true;
+
+                if (notValidPowerOf2) {
+                    image->ensureValidSizeForTexturing(maxTextureDimension);
+                    if(osgDB::isAbsolutePath(image->getFileName()))
+                        osgDB::writeImageFile(*image, image->getFileName());
+                    else
+                        osgDB::writeImageFile(*image,
+                                              osgDB::concatPaths(modelDir,
+                                                                 image->getFileName()));
+                }
             }
             return new JSONValue<std::string>(image->getFileName());
         } else {
