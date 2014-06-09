@@ -230,7 +230,6 @@ public:
         case(GL_TRIANGLE_FAN):
         {
             IndexPointer iptr = indices;
-            Index first = *iptr;
             ++iptr;
             for(GLsizei i=2;i<count;++i,++iptr)
             {
@@ -337,7 +336,6 @@ public:
         case(GL_TRIANGLE_FAN):
         {
             IndexPointer iptr = indices;
-            Index first = *iptr;
             ++iptr;
             for(GLsizei i=2;i<count;++i,++iptr)
             {
@@ -444,7 +442,6 @@ public:
         case(GL_TRIANGLE_FAN):
         {
             IndexPointer iptr = indices;
-            Index first = *iptr;
             ++iptr;
             for(GLsizei i=2;i<count;++i,++iptr)
             {

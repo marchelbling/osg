@@ -45,13 +45,8 @@ namespace {
 
         void add(osg::Array* array, osg::Geometry::AttributeBinding binding)
         {
-            if (binding == osg::Geometry::BIND_PER_VERTEX)
-            {
-                if (array)
-                    _arrayList.push_back(array);
-            }
-            else if (binding == osg::Geometry::BIND_PER_PRIMITIVE)
-                _useDrawElements = false;
+            if (array)
+                _arrayList.push_back(array);
         }
 
         void accept(osg::ArrayVisitor& av)
@@ -677,17 +672,13 @@ namespace {
 
 void IndexShape::makeMesh(osg::Geometry& geom) {
 
-    if (geom.getNormalBinding()==osg::Geometry::BIND_PER_PRIMITIVE ||
-        geom.getNormalBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
+    if (geom.getNormalBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
 
-    if (geom.getColorBinding()==osg::Geometry::BIND_PER_PRIMITIVE ||
-        geom.getColorBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
+    if (geom.getColorBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
 
-    if (geom.getSecondaryColorBinding()==osg::Geometry::BIND_PER_PRIMITIVE ||
-        geom.getSecondaryColorBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
+    if (geom.getSecondaryColorBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
 
-    if (geom.getFogCoordBinding()==osg::Geometry::BIND_PER_PRIMITIVE ||
-        geom.getFogCoordBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
+    if (geom.getFogCoordBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
 
     // no point optimizing if we don't have enough vertices.
     if (!geom.getVertexArray() || geom.getVertexArray()->getNumElements()<3) return;
@@ -724,15 +715,6 @@ void IndexShape::makeMesh(osg::Geometry& geom) {
 
     // nothing to index
     if (!numSurfacePrimitives) return;
-
-    // check to see if vertex attributes indices exists, if so expand them to remove them
-    if (geom.suitableForOptimization())
-    {
-        // removing coord indices
-        OSG_INFO<<"Removing attribute indices"<<std::endl;
-        geom.copyToAndOptimize(geom);
-    }
-
 
     // compute duplicate vertices
     typedef std::vector<unsigned int> IndexList;

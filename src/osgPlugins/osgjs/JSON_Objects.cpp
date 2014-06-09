@@ -139,7 +139,6 @@ std::pair<unsigned int,unsigned int> JSONVertexArray::writeMergeData(const osg::
     // pad to 4 bytes
     unsigned int diff = fsize - (fsize/4) * 4;
     if (diff > 0) {
-        char* buffer = "FF00FF00";
         visitor._mergeBinaryFile.write(b, diff);
     }
     return std::pair<unsigned int, unsigned int>(offset, fsize-offset);

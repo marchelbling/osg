@@ -185,17 +185,6 @@ void translateObject(JSONObject* json, osg::Object* osg)
                 }
             }
 
-            {
-                osgSim::ShapeAttributeList* uv = dynamic_cast<osgSim::ShapeAttributeList* >(o);
-#if 0
-                osg::notify(osg::NOTICE) << o->getName() << std::endl;        
-                osg::notify(osg::NOTICE) << o->className() << std::endl;
-                if (uv) {
-                    osg::notify(osg::NOTICE) << "osgSim::ShapeAttributeList" << std::endl;
-                }
-#endif
-            }
-            
         }
         json->getMaps()["UserDataContainer"] = jsonUDC;
     }

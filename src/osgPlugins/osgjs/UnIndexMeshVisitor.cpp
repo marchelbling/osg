@@ -66,17 +66,6 @@ void UnIndexMeshVisitor::apply(osg::Drawable& drw)
 
 void UnIndexMeshVisitor::apply(osg::Geometry& geom) 
 {
-    if (geom.getNormalBinding()==osg::Geometry::BIND_PER_PRIMITIVE ||
-        geom.getNormalBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
-
-    if (geom.getColorBinding()==osg::Geometry::BIND_PER_PRIMITIVE ||
-        geom.getColorBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
-
-    if (geom.getSecondaryColorBinding()==osg::Geometry::BIND_PER_PRIMITIVE ||
-        geom.getSecondaryColorBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
-
-    if (geom.getFogCoordBinding()==osg::Geometry::BIND_PER_PRIMITIVE ||
-        geom.getFogCoordBinding()==osg::Geometry::BIND_PER_PRIMITIVE_SET) return;
 
     // no point optimizing if we don't have enough vertices.
     if (!geom.getVertexArray()) return;
@@ -103,14 +92,6 @@ void UnIndexMeshVisitor::apply(osg::Geometry& geom)
     }
 
     // we dont manage lines
-
-    // check to see if vertex attributes indices exists, if so expand them to remove them
-    if (geom.suitableForOptimization())
-    {
-        // removing coord indices
-        OSG_INFO<<"Removing attribute indices"<<std::endl;
-        geom.copyToAndOptimize(geom);
-    }
     
     GeometryArrayList arraySrc(geom);
     GeometryArrayList arrayList = arraySrc.cloneType();
@@ -142,8 +123,6 @@ void UnIndexMeshVisitor::apply(osg::Geometry& geom)
 
             // now copy each vertex to new array, like a draw array
             arraySrc.append(triangleIndexList._indexes, arrayList);
-
-            unsigned int end = arrayList.size();
 
             newPrimitives.push_back(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES, index, triangleIndexList._indexes.size()));
         }
