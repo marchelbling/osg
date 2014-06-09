@@ -152,7 +152,7 @@ RigTransformHardware::BoneWeightAttribList RigTransformHardware::createVertexAtt
     arrayList.resize(nbArray);
     for (int i = 0; i < nbArray; i++)
     {
-        osg::ref_ptr<osg::Vec4Array> array = new osg::Vec4Array;
+        osg::ref_ptr<osg::Vec4Array> array = new osg::Vec4Array(osg::Array::BIND_PER_VERTEX);
         arrayList[i] = array;
         int nbVertexes = getNumVertexes();
         array->resize(nbVertexes);
@@ -250,7 +250,7 @@ bool RigTransformHardware::init(RigGeometry& geom)
         std::stringstream ss;
         ss << "boneWeight" << i;
         program->addBindAttribLocation(ss.str(), attribIndex + i);
-        geom.setVertexAttribData(attribIndex + i, osg::Geometry::ArrayData(getVertexAttrib(i),osg::Geometry::BIND_PER_VERTEX));
+        geom.setVertexAttribArray(attribIndex + i, getVertexAttrib(i));
         OSG_INFO << "set vertex attrib " << ss.str() << std::endl;
     }
     program->addShader(_shader.get());

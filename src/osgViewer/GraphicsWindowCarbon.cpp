@@ -251,6 +251,9 @@ void GraphicsWindowCarbon::init()
     }
     _valid = (_pixelFormat != NULL);
     _initialized = true;
+    
+    // make sure the event queue has the correct window rectangle size and input range
+    getEventQueue()->syncWindowRectangleWithGraphcisContext();
 }
 
 bool GraphicsWindowCarbon::setWindowDecorationImplementation(bool flag)
@@ -452,6 +455,10 @@ bool GraphicsWindowCarbon::realizeImplementation()
     _currentVSync = _traits->vsync;
 
     _realized = true;
+
+    // make sure the event queue has the correct window rectangle size and input range
+    getEventQueue()->syncWindowRectangleWithGraphcisContext();
+    
     return _realized;
 }
 
@@ -837,9 +844,9 @@ bool GraphicsWindowCarbon::handleModifierKeys(EventRef theEvent)
 
 
 
-void GraphicsWindowCarbon::checkEvents()
+bool GraphicsWindowCarbon::checkEvents()
 {
-    if (!_realized) return;
+    if (!_realized) return false;
 
     EventRef theEvent;
     EventTargetRef theTarget = GetEventDispatcherTarget();
@@ -862,7 +869,7 @@ void GraphicsWindowCarbon::checkEvents()
                     if ((fwres == inMenuBar) && (mouseButton >= 1)) {
                         MenuSelect(wheresMyMouse);
                         HiliteMenu(0);
-                        return;
+                        return !(getEventQueue()->empty());
                     }
                     break;
                 }
@@ -896,6 +903,7 @@ void GraphicsWindowCarbon::checkEvents()
         s_quit_requested = false;
     }
 
+    return !(getEventQueue()->empty());
 }
 
 

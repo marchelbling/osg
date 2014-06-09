@@ -31,18 +31,29 @@ if(COMMAND cmake_policy)
     if(${CMAKE_MAJOR_VERSION} EQUAL 2 AND ${CMAKE_MINOR_VERSION} GREATER 4 AND ${CMAKE_PATCH_VERSION} GREATER 0)
         cmake_policy(SET CMP0008 OLD)
     endif()
+
+    # disable autolinking to qtmain as we have our own main() functions (new in Qt 5.1)
+    if((${CMAKE_MAJOR_VERSION} EQUAL 2 OR ${CMAKE_MAJOR_VERSION} GREATER 2) AND
+       (${CMAKE_MINOR_VERSION} EQUAL 8 OR ${CMAKE_MINOR_VERSION} GREATER 8) AND
+        ${CMAKE_PATCH_VERSION} GREATER 10)
+        cmake_policy(SET CMP0020 OLD)
+    endif()
+    # nicer version check - but needs at least CMake 2.6.2? Worth upgrading the requirements?
+    #if("${CMAKE_VERSION}" VERSION_GREATER 2.8.10)
+
+
 endif()
 
 PROJECT(OpenSceneGraph)
 
 SET(OPENSCENEGRAPH_MAJOR_VERSION 3)
-SET(OPENSCENEGRAPH_MINOR_VERSION 1)
-SET(OPENSCENEGRAPH_PATCH_VERSION 4)
-SET(OPENSCENEGRAPH_SOVERSION 94)
+SET(OPENSCENEGRAPH_MINOR_VERSION 2)
+SET(OPENSCENEGRAPH_PATCH_VERSION 1)
+SET(OPENSCENEGRAPH_SOVERSION 100)
 
 # set to 0 when not a release candidate, non zero means that any generated
 # svn tags will be treated as release candidates of given number
-SET(OPENSCENEGRAPH_RELEASE_CANDIDATE 0)
+SET(OPENSCENEGRAPH_RELEASE_CANDIDATE 3)
 
 SET(OPENSCENEGRAPH_VERSION ${OPENSCENEGRAPH_MAJOR_VERSION}.${OPENSCENEGRAPH_MINOR_VERSION}.${OPENSCENEGRAPH_PATCH_VERSION})
 
@@ -163,17 +174,17 @@ ENDIF()
 OPTION(OSG_MAINTAINER "Enable OpenSceneGraph maintainer build methods, such as making svn branches, tags, updating ChangeLog." OFF)
 IF (OSG_MAINTAINER)
 
-    SET(OPENSCENEGRAPH_SVN "trunk")
-    #SET(OPENSCENEGRAPH_SVN "branches")
+    #SET(OPENSCENEGRAPH_SVN "trunk")
+    SET(OPENSCENEGRAPH_SVN "branches")
     SET(OPENSCENEGRAPH_BRANCH OpenSceneGraph-${OPENSCENEGRAPH_MAJOR_VERSION}.${OPENSCENEGRAPH_MINOR_VERSION})
 
     #
     # Provide target for tagging a release
     #
     SET(SVNCOMMAND svn)
-    SET(SVNTRUNKDIR     http://www.openscenegraph.org/svn/osg/OpenSceneGraph/trunk)
-    SET(SVNTAGDIR       http://www.openscenegraph.org/svn/osg/OpenSceneGraph/tags)
-    SET(SVNBRANCHDIR    http://www.openscenegraph.org/svn/osg/OpenSceneGraph/branches)
+    SET(SVNTRUNKDIR     http://svn.openscenegraph.org/osg/OpenSceneGraph/trunk)
+    SET(SVNTAGDIR       http://svn.openscenegraph.org/osg/OpenSceneGraph/tags)
+    SET(SVNBRANCHDIR    http://svn.openscenegraph.org/osg/OpenSceneGraph/branches)
 
     IF   (OPENSCENEGRAPH_SVN STREQUAL "trunk")
         SET(SVNSOURCEDIR ${SVNTRUNKDIR})
@@ -220,9 +231,11 @@ ENDIF(OSG_MAINTAINER)
 IF(NOT ANDROID)
 IF(APPLE)
     # Determine the canonical name of the selected Platform SDK
-    EXECUTE_PROCESS(COMMAND "defaults" "read" "${CMAKE_OSX_SYSROOT}/SDKSettings.plist" "CanonicalName"
+    EXECUTE_PROCESS(COMMAND "/usr/bin/sw_vers" "-productVersion"
                     OUTPUT_VARIABLE OSG_OSX_SDK_NAME
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
+    STRING(SUBSTRING "${OSG_OSX_SDK_NAME}" 0 4 OSG_OSX_SDK_NAME)
+    SET(OSG_OSX_SDK_NAME "macosx${OSG_OSX_SDK_NAME}")
 
     # Trying to get CMake to generate an XCode IPhone project, current efforts are to get iphoneos sdk 3.1 working
     # Added option which needs manually setting to select the IPhone SDK for building. We can only have one of the below
@@ -233,14 +246,17 @@ IF(APPLE)
     IF(OSG_BUILD_PLATFORM_IPHONE OR OSG_BUILD_PLATFORM_IPHONE_SIMULATOR)
 
         #you need to manually set the default sdk version here
-        SET (IPHONE_SDKVER "5.1" CACHE STRING "IOS SDK-Version")
+        SET (IPHONE_SDKVER "6.0" CACHE STRING "IOS SDK-Version")
+        SET (IPHONE_VERSION_MIN "4.2" CACHE STRING "IOS minimum os version, use 7.0 or greater to get 64bit support")
 
         #the below is taken from ogre, it states the gcc stuff needs to happen before PROJECT() is called. I've no clue if we even need it
         # Force gcc <= 4.2 on iPhone
-        include(CMakeForceCompiler)
-        CMAKE_FORCE_C_COMPILER(llvm-gcc-4.2 GNU)
-        CMAKE_FORCE_CXX_COMPILER(llvm-gcc-4.2 GNU)
-        SET(GCC_THUMB_SUPPORT NO)
+        IF(IPHONE_VERSION_MIN LESS "6.0")
+            include(CMakeForceCompiler)
+            CMAKE_FORCE_C_COMPILER(llvm-gcc-4.2 GNU)
+            CMAKE_FORCE_CXX_COMPILER(llvm-gcc-4.2 GNU)
+            SET(GCC_THUMB_SUPPORT NO)
+        ENDIF()
 
         #set either the device sdk or the simulator sdk. Can't find away to separate these in the same project
         IF(OSG_BUILD_PLATFORM_IPHONE)
@@ -344,7 +360,13 @@ IF(WIN32 AND NOT ANDROID)
             STRING(REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
             STRING(REGEX REPLACE "/STACK:[0-9]+" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}")
         ENDIF(MSVC_USE_DEFAULT_STACK_SIZE)
-
+        get_filename_component( CMAKE_MAKE_PROGRAM_NAME ${CMAKE_MAKE_PROGRAM} NAME)
+        IF (CMAKE_MAKE_PROGRAM_NAME STREQUAL "VCExpress.exe")
+            OPTION(MSVC_BUILD_USE_SOLUTION_FOLDERS "Enable project grouping in VS - VCExpress detected, not supported in VCExpress )" OFF)
+        ELSE()
+            OPTION(MSVC_BUILD_USE_SOLUTION_FOLDERS "Enable project grouping in VS" ON)
+        ENDIF()
+        SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ${MSVC_BUILD_USE_SOLUTION_FOLDERS})
     ENDIF()
 
     #needed for net plugin
@@ -427,6 +449,7 @@ MARK_AS_ADVANCED(OSG_DISABLE_MSVC_WARNINGS)
 
 OPTION(OSG_USE_REF_PTR_IMPLICIT_OUTPUT_CONVERSION "Set to ON to use the ref_ptr<> T* operator() output conversion. " ON)
 
+
 OPTION(OSG_GL1_AVAILABLE "Set to OFF to disable use of OpenGL 1.x functions library." ON)
 OPTION(OSG_GL2_AVAILABLE "Set to OFF to disable use of OpenGL 2.x functions library." ON)
 OPTION(OSG_GL3_AVAILABLE "Set to OFF to disable use of OpenGL 3.x functions library." OFF)
@@ -492,7 +515,7 @@ IF(ANDROID)
     ANDROID_3RD_PARTY()
 ELSE()
 # Common to all platforms except android:
-    FIND_PACKAGE(FreeType)
+    FIND_PACKAGE(Freetype)
     FIND_PACKAGE(Inventor)
     FIND_PACKAGE(Jasper)
     FIND_PACKAGE(OpenEXR)
@@ -507,7 +530,6 @@ ELSE()
     FIND_PACKAGE(CURL)
     FIND_PACKAGE(LibVNCServer)
     FIND_PACKAGE(OurDCMTK)
-    FIND_PACKAGE(OpenAL)
     FIND_PACKAGE(FFmpeg)
     FIND_PACKAGE(DirectShow)
     FIND_PACKAGE(SDL)
@@ -516,7 +538,9 @@ ELSE()
     FIND_PACKAGE(GtkGl)
     FIND_PACKAGE(DirectInput)
     FIND_PACKAGE(NVTT)
-    FIND_PACKAGE(Asio)
+    IF (NOT WIN32)
+        FIND_PACKAGE(Asio)
+    ENDIF()
     FIND_PACKAGE(ZeroConf)
 ENDIF()
 
@@ -531,10 +555,13 @@ OPTION(OSG_USE_QT "Enable to use Qt (build Qt-dependent libraries, plugins and e
 
 IF(OSG_USE_QT AND NOT ANDROID)
 # To select a specific version of QT define DESIRED_QT_VERSION
-# via cmake -DDESIRED_QT_VERSION=4
-    IF  (DESIRED_QT_VERSION)
+# via cmake -DDESIRED_QT_VERSION=5
+# QUIET option disables messages if the package cannot be found.
 
-        IF  (DESIRED_QT_VERSION MATCHES 4)
+    IF  (DESIRED_QT_VERSION)
+        IF  (DESIRED_QT_VERSION MATCHES 5)
+              FIND_PACKAGE(Qt5Widgets)
+        ELSEIF (DESIRED_QT_VERSION MATCHES 4)
               FIND_PACKAGE(Qt4)
         ELSE()
               FIND_PACKAGE(Qt3)
@@ -542,13 +569,35 @@ IF(OSG_USE_QT AND NOT ANDROID)
 
     ELSE()
 
-        FIND_PACKAGE(Qt4)
+        FIND_PACKAGE(Qt5Widgets QUIET)
 
-        IF  (NOT QT4_FOUND)
-            FIND_PACKAGE(Qt3)
+        IF ( Qt5Widgets_FOUND )
+            # CMake 2.8.8 or greater required
+            BUILDER_VERSION_GREATER(2 8 7)
+            IF(NOT VALID_BUILDER_VERSION)
+                MESSAGE(
+                SEND_ERROR
+                "Qt5 requires CMake version 2.8.8 or greater!\n"
+                "Update CMake or set DESIRED_QT_VERSION to less than 5
+                or disable OSG_USE_QT."
+                )
+            ENDIF( )
+        ENDIF( )
+
+        IF ( NOT Qt5Widgets_FOUND )
+            FIND_PACKAGE(Qt4)
+
+            IF (NOT QT4_FOUND)
+                FIND_PACKAGE(Qt3)
+            ENDIF()
         ENDIF()
-
     ENDIF()
+
+    #If we have found Qt5, let's try to top off by getting the webkit as well
+    IF ( Qt5Widgets_FOUND )
+        FIND_PACKAGE(Qt5WebKitWidgets QUIET)
+    ENDIF()
+
 ENDIF()
 
 #optional example related dependencies
@@ -591,6 +640,7 @@ IF(NOT ANDROID)
         ENDIF()
 
     ELSE()
+        FIND_PACKAGE(TIFF)
         FIND_PACKAGE(QuickTime)
         FIND_PACKAGE(QTKit)
         FIND_PACKAGE(CoreVideo)
@@ -745,28 +795,31 @@ IF(CMAKE_COMPILER_IS_GNUCXX)
     # returns too many hits.
     # FYI, if we do implement GNUCC, then -Wmissing-prototypes in another
     # interesting C-specific flag.
-    # Also, there is a bug in gcc 4.0. Under C++, -pedantic will create
-    # errors instead of warnings for certain issues, including superfluous
-    # semicolons and commas, and the use of long long. -fpermissive seems
-    # to be the workaround.
-    SET(OSG_AGGRESSIVE_WARNING_FLAGS -Wall -Wparentheses -Wno-long-long -Wno-import -pedantic -Wreturn-type -Wmissing-braces -Wunknown-pragmas -Wunused -fpermissive)
+    SET(OSG_AGGRESSIVE_WARNING_FLAGS -Wall -Wparentheses -Wno-long-long -Wno-import -pedantic -Wreturn-type -Wmissing-braces -Wunknown-pragmas -Wunused)
 
     # Previous included -Wformat=2 in OSG_AGGRESSIVE_WARNING_FLAGS but had to remove it due to standard library errors
 
 
-ELSE()
-    IF(MSVC)
-        # FIXME: What are good aggressive warning flags for Visual Studio?
-        # And do we need to further subcase this for different versions of VS?
-        # CMake variables: MSVC60, MSVC70, MSVC71, MSVC80, CMAKE_COMPILER_2005
+ELSEIF(MSVC)
+        #disable specific warning level 4 warnings:
+        #C4100 'identifier' : unreferenced formal parameter
+        #C4127 Error Message conditional expression is constant
+        #C4706 assignment within conditional expression
         SET(OSG_AGGRESSIVE_WARNING_FLAGS /W4 /wd4706 /wd4127 /wd4100)
+ELSEIF(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        SET(OSG_AGGRESSIVE_WARNING_FLAGS  -Wall -Wparentheses -Wno-long-long -Wno-import -pedantic -Wreturn-type -Wmissing-braces -Wunknown-pragmas -Wunused -Wno-overloaded-virtual)
 
-
-    ELSE()
         # CMake lacks an elseif, so other non-gcc, non-VS compilers need
         # to be listed below. If unhandled, OSG_AGGRESSIVE_WARNING_FLAGS should
         # remain unset.
-    ENDIF()
+
+        IF (APPLE)
+            # set standard lib, clang defaults to c++0x
+            set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD "c++98")
+            set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libstdc++")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++98 -stdlib=libstdc++ -Wno-overloaded-virtual -Wno-conversion")
+            set(WARNING_CFLAGS "")
+        ENDIF()
 ENDIF()
 
 # This part is for the CMake menu option to toggle the warnings on/off.
@@ -819,15 +872,21 @@ IF   (BUILD_OSG_EXAMPLES)
 ENDIF()
 
 
-IF(APPLE)
+IF(APPLE AND NOT ANDROID)
 
         #Here we check if the user specified IPhone SDK
     IF(OSG_BUILD_PLATFORM_IPHONE OR OSG_BUILD_PLATFORM_IPHONE_SIMULATOR)
 
         #set iphone arch and flags taken from http://sites.google.com/site/michaelsafyan/coding/resources/how-to-guides/cross-compile-for-the-iphone/how-to-cross-compile-for-the-iphone-using-cmake
         IF(OSG_BUILD_PLATFORM_IPHONE)
-            SET(CMAKE_OSX_ARCHITECTURES "armv6;armv7" CACHE STRING "Build architectures for iOS" FORCE)
-            SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -miphoneos-version-min=4.1 -mno-thumb -arch armv6 -pipe -no-cpp-precomp" CACHE STRING "Flags used by the compiler during all build types." FORCE)
+            IF(${IPHONE_VERSION_MIN} LESS "7.0")
+                SET(CMAKE_OSX_ARCHITECTURES "armv6;armv7" CACHE STRING "Build architectures for iOS" FORCE)
+                SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -miphoneos-version-min=${IPHONE_VERSION_MIN} -mno-thumb -pipe -no-cpp-precomp" CACHE STRING "Flags used by the compiler during all build types." FORCE)
+            ELSE()
+                SET(CMAKE_OSX_ARCHITECTURES "armv7;armv7s;arm64" CACHE STRING "Build architectures for iOS" FORCE)
+                SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -miphoneos-version-min=${IPHONE_VERSION_MIN} -pipe -no-cpp-precomp" CACHE STRING "Flags used by the compiler during all build types." FORCE)
+            ENDIF()
+
         ELSE()
             #simulator uses i386 architectures
             SET(CMAKE_OSX_ARCHITECTURES "i386" CACHE STRING "Build architectures for iOS Simulator" FORCE)
@@ -859,7 +918,7 @@ IF(APPLE)
         # FORCE is used because the options are not reflected in the UI otherwise.
         # Seems like a good place to add version specific compiler flags too.
         IF(NOT OSG_CONFIG_HAS_BEEN_RUN_BEFORE)
-            IF(${OSG_OSX_SDK_NAME} STREQUAL "macosx10.8")
+            IF(${OSG_OSX_SDK_NAME} STREQUAL "macosx10.8" OR ${OSG_OSX_SDK_NAME} STREQUAL "macosx10.9")
                 SET(OSG_DEFAULT_IMAGE_PLUGIN_FOR_OSX "imageio" CACHE STRING "Forced imageio default image plugin for OSX" FORCE)
                 # 64 Bit Works, i386,ppc is not supported any more
                 SET(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "Build architectures for OSX" FORCE)
@@ -871,7 +930,7 @@ IF(APPLE)
                 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=10.7 -fvisibility-inlines-hidden" CACHE STRING "Flags used by the compiler during all build types." FORCE)
             ELSEIF(${OSG_OSX_SDK_NAME} STREQUAL "macosx10.6" OR ${OSG_OSX_SDK_NAME} STREQUAL "macosx10.5")
                 SET(OSG_DEFAULT_IMAGE_PLUGIN_FOR_OSX "imageio" CACHE STRING "Forced imageio default image plugin for OSX" FORCE)
-                # 64-bit compiles are not supported with Carbon. 
+                # 64-bit compiles are not supported with Carbon.
                 SET(CMAKE_OSX_ARCHITECTURES "ppc;i386" CACHE STRING "Build architectures for OSX" FORCE)
                 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=10.5 -ftree-vectorize -fvisibility-inlines-hidden" CACHE STRING "Flags used by the compiler during all build types." FORCE)
             ELSEIF(${OSG_OSX_SDK_NAME} STREQUAL "macosx10.4")
@@ -889,15 +948,15 @@ IF(APPLE)
 
     ENDIF()
 
-ENDIF(APPLE)
+ENDIF()
 
 
 # For Doxygen
 INCLUDE(${CMAKE_ROOT}/Modules/Documentation.cmake OPTIONAL)
-OPTION(BUILD_DOCUMENTATION "Build OpenSceneGraph reference documentation using doxygen (use: make DoxygenDoc)" OFF)
+OPTION(BUILD_DOCUMENTATION "Build OpenSceneGraph reference documentation using doxygen (use: make doc_openscenegraph doc_openthreads)" OFF)
 MARK_AS_ADVANCED(CLEAR BUILD_DOCUMENTATION)
 # To build the documention, you will have to enable it
-# and then do the equivalent of "make DoxygenDoc".
+# and then do the equivalent of "make doc_openscenegraph doc_openthreads".
 IF(BUILD_DOCUMENTATION)
 
     OPTION(BUILD_REF_DOCS_SEARCHENGINE "Enable doxygen's search engine (requires that documentation to be installed on a php enabled web server)" OFF)
@@ -985,10 +1044,10 @@ IF(BUILD_DOCUMENTATION)
     SET_TARGET_PROPERTIES(doc_openthreads PROPERTIES FOLDER "Documentation")
 ENDIF(BUILD_DOCUMENTATION)
 
-OPTION(BUILD_DASHBOARD_REPORTS "Set to ON to activate reporting of OpenSceneGraph builds here http://www.cdash.org/CDashPublic/index.php?project=OpenSceneGraph" OFF)
+OPTION(BUILD_DASHBOARD_REPORTS "Set to ON to activate reporting of OpenSceneGraph builds here http://cdash.openscenegraph.org/index.php?project=OpenSceneGraph" OFF)
 IF(BUILD_DASHBOARD_REPORTS)
 # The following are required to uses Dart and the Cdash dashboard
-# viewable here : http://www.cdash.org/CDashPublic/index.php?project=OpenSceneGraph
+# viewable here : http://cdash.openscenegraph.org/index.php?project=OpenSceneGraph
     INCLUDE(Dart)
 ENDIF()
 
@@ -1021,9 +1080,9 @@ SET(PKGCONFIG_FILES
   openscenegraph-osgVolume
 )
 
-IF(QT4_FOUND)
+IF(QT4_FOUND OR Qt5Widgets_FOUND )
   SET(PKGCONFIG_FILES ${PKGCONFIG_FILES} openscenegraph-osgQt)
-ENDIF(QT4_FOUND)
+ENDIF()
 
 FOREACH(PKGCONFIG_FILE ${PKGCONFIG_FILES})
   CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/packaging/pkgconfig/${PKGCONFIG_FILE}.pc.in

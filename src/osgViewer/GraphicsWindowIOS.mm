@@ -163,7 +163,7 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
 }
 
 
-- (unsigned int)computeTouchId: (UITouch*) touch 
+- (unsigned int)computeTouchId: (UITouch*) touch mayCleanup: (bool)may_cleanup
 {
     unsigned int result(0);
     
@@ -202,10 +202,10 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
             {
                 TouchPointsIdMapping::iterator itr = _touchPointsIdMapping->find(touch);
                 // std::cout<< "remove: " << touch << " num: " << _touchPointsIdMapping->size() << " found: " << (itr != _touchPointsIdMapping->end()) << std::endl;
-                
                 if (itr != _touchPointsIdMapping->end()) {
                     result = itr->second;
-                    _touchPointsIdMapping->erase(itr);
+                    if(may_cleanup)
+                        _touchPointsIdMapping->erase(itr);
                 }
                 if(_touchPointsIdMapping->size() == 0) {
                     _lastTouchPointId = 0;
@@ -436,9 +436,14 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
         glGenRenderbuffersOES(1, &_msaaDepthBuffer); 
         glBindRenderbufferOES(GL_RENDERBUFFER_OES, _msaaDepthBuffer);
         
-        glRenderbufferStorageMultisampleAPPLE(GL_RENDERBUFFER_OES, _win->getTraits()->samples, ( _win->getTraits()->depth == 16) ? GL_DEPTH_COMPONENT16_OES : GL_DEPTH_COMPONENT24_OES, _backingWidth , _backingHeight);
+        GLuint attachmentType = (_win->getTraits()->stencil > 0) ? GL_DEPTH24_STENCIL8_OES : ((_win->getTraits()->depth == 16) ? GL_DEPTH_COMPONENT16_OES : GL_DEPTH_COMPONENT24_OES);
+        glRenderbufferStorageMultisampleAPPLE(GL_RENDERBUFFER_OES, _win->getTraits()->samples, attachmentType, _backingWidth , _backingHeight);
+        
         glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES, GL_RENDERBUFFER_OES, _msaaDepthBuffer);
-    
+        if (_win->getTraits()->stencil > 0) 
+        {
+            glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_STENCIL_ATTACHMENT_OES, GL_RENDERBUFFER_OES, _msaaDepthBuffer);
+        }
     }
 #endif
     
@@ -571,9 +576,9 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
     {
         
         UITouch *touch = [[allTouches allObjects] objectAtIndex:i];
-        CGPoint pos = [touch locationInView:touch.view];
+        CGPoint pos = [touch locationInView:self];
         osg::Vec2 pixelPos = [self convertPointToPixel: osg::Vec2(pos.x,pos.y)];
-        unsigned int touch_id = [self computeTouchId: touch];
+        unsigned int touch_id = [self computeTouchId: touch mayCleanup: FALSE];
         
         if (!osg_event) {
             osg_event = _win->getEventQueue()->touchBegan(touch_id, [self convertTouchPhase: [touch phase]], pixelPos.x(), pixelPos.y());
@@ -582,6 +587,7 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
         }
     }
     
+    [super touchesBegan:touches withEvent:event];
 }
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event {
@@ -593,18 +599,18 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
     for(int i=0; i<[allTouches count]; i++)
     {
         UITouch *touch = [[allTouches allObjects] objectAtIndex:i];
-        CGPoint pos = [touch locationInView:touch.view];
+        CGPoint pos = [touch locationInView:self];
         osg::Vec2 pixelPos = [self convertPointToPixel: osg::Vec2(pos.x,pos.y)];
-        unsigned int touch_id = [self computeTouchId: touch];
+        unsigned int touch_id = [self computeTouchId: touch mayCleanup: FALSE];
 
         if (!osg_event) {
             osg_event = _win->getEventQueue()->touchMoved(touch_id, [self convertTouchPhase: [touch phase]], pixelPos.x(), pixelPos.y());
         } else {
             osg_event->addTouchPoint(touch_id, [self convertTouchPhase: [touch phase]], pixelPos.x(), pixelPos.y());
         }
-
-
     }
+    
+    [super touchesMoved:touches withEvent:event];    
 }
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
@@ -617,16 +623,17 @@ typedef std::map<void*, unsigned int> TouchPointsIdMapping;
     for(int i=0; i<[allTouches count]; i++)
     {
         UITouch *touch = [[allTouches allObjects] objectAtIndex:i];
-        CGPoint pos = [touch locationInView:touch.view];
+        CGPoint pos = [touch locationInView:self];
         osg::Vec2 pixelPos = [self convertPointToPixel: osg::Vec2(pos.x,pos.y)];
-        unsigned int touch_id = [self computeTouchId: touch];
+        unsigned int touch_id = [self computeTouchId: touch mayCleanup: TRUE];
         if (!osg_event) {
             osg_event = _win->getEventQueue()->touchEnded(touch_id, [self convertTouchPhase: [touch phase]], pixelPos.x(), pixelPos.y(), [touch tapCount]);
         } else {
             osg_event->addTouchPoint(touch_id, [self convertTouchPhase: [touch phase]], pixelPos.x(), pixelPos.y(), [touch tapCount]);
         }
-
     }
+    
+    [super touchesEnded:touches withEvent:event];    
 }
 
 -(void) touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event 
@@ -727,6 +734,9 @@ void GraphicsWindowIOS::init()
     //if -1.0 we use the screens scale factor
     _viewContentScaleFactor = -1.0f;
     _valid = _initialized = true;
+
+    // make sure the event queue has the correct window rectangle size and input range
+    getEventQueue()->syncWindowRectangleWithGraphcisContext();
 }
 
 
@@ -736,6 +746,8 @@ void GraphicsWindowIOS::init()
 
 bool GraphicsWindowIOS::realizeImplementation()
 {
+    if (_realized) return true;
+    
     NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
     
     BOOL bar_hidden = (_traits->windowDecoration) ? NO: YES;
@@ -889,6 +901,9 @@ bool GraphicsWindowIOS::realizeImplementation()
     
     // IOSs origin is top/left:
     getEventQueue()->getCurrentEventState()->setMouseYOrientation(osgGA::GUIEventAdapter::Y_INCREASING_DOWNWARDS);
+
+    // make sure the event queue has the correct window rectangle size and input range
+    getEventQueue()->syncWindowRectangleWithGraphcisContext();
     
     _valid = _initialized = _realized = true;
     return _valid;
@@ -1063,10 +1078,10 @@ bool GraphicsWindowIOS::setWindowRectangleImplementation(int x, int y, int width
 }
 
     
-void GraphicsWindowIOS::checkEvents()
+bool GraphicsWindowIOS::checkEvents()
 {
-    
-    
+
+    return !(getEventQueue()->empty());
 }
 
 

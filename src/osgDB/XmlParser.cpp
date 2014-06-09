@@ -49,10 +49,12 @@ std::string osgDB::trimEnclosingSpaces(const std::string& str)
 {
     if (str.empty()) return str;
 
-    std::string::size_type start = str.find_first_not_of(' ');
+    const std::string whitespaces(" \t\f\v\n\r");
+
+    std::string::size_type start = str.find_first_not_of(whitespaces);
     if (start==std::string::npos) return std::string();
 
-    std::string::size_type end = str.find_last_not_of(' ');
+    std::string::size_type end = str.find_last_not_of(whitespaces);
     if (end==std::string::npos) return std::string();
 
     return std::string(str, start, (end-start)+1);
@@ -491,7 +493,7 @@ bool XmlNode::writeString(const ControlMap& controlMap, std::ostream& fout, cons
     return true;
 }
 
-bool XmlNode::writeChildren(const ControlMap& controlMap, std::ostream& fout, const std::string& indent) const
+bool XmlNode::writeChildren(const ControlMap& /*controlMap*/, std::ostream& fout, const std::string& indent) const
 {
     for(Children::const_iterator citr = children.begin();
         citr != children.end();

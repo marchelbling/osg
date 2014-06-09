@@ -1,3 +1,8 @@
+#include <osg/Config>
+#ifndef OSG_USE_DEPRECATED_GEOMETRY_METHODS
+#define OSG_USE_DEPRECATED_GEOMETRY_METHODS 1
+#endif
+
 #include <osg/Geometry>
 #include <osg/Notify>
 #include <osg/io_utils>
@@ -15,8 +20,8 @@ using namespace osgDB;
 bool Geometry_readLocalData(Object& obj, Input& fr);
 bool Geometry_writeLocalData(const Object& obj, Output& fw);
 
-bool Geometry_matchBindingTypeStr(const char* str,Geometry::AttributeBinding& mode);
-const char* Geometry_getBindingTypeStr(Geometry::AttributeBinding mode);
+bool Geometry_matchBindingTypeStr(const char* str,deprecated_osg::Geometry::AttributeBinding& mode);
+const char* Geometry_getBindingTypeStr(deprecated_osg::Geometry::AttributeBinding mode);
 
 bool Geometry_matchPrimitiveModeStr(const char* str,GLenum& mode);
 const char* Geometry_getPrimitiveModeStr(GLenum mode);
@@ -40,7 +45,7 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
 {
     bool iteratorAdvanced = false;
 
-    Geometry& geom = static_cast<Geometry&>(obj);
+    deprecated_osg::Geometry& geom = static_cast<deprecated_osg::Geometry&>(obj);
 
     if (fr.matchSequence("Primitives %i {") || fr.matchSequence("PrimitiveSets %i {") )
     {
@@ -129,10 +134,9 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
     }
 
 
-    Geometry::AttributeBinding normalBinding=Geometry::BIND_OFF;
+    deprecated_osg::Geometry::AttributeBinding normalBinding = deprecated_osg::Geometry::BIND_OFF;
     if (fr[0].matchWord("NormalBinding") && Geometry_matchBindingTypeStr(fr[1].getStr(),normalBinding))
     {
-        geom.setNormalBinding(normalBinding);
         fr+=2;
         iteratorAdvanced = true;
     }
@@ -182,6 +186,8 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
             }
             iteratorAdvanced = true;
         }
+
+        geom.setNormalBinding(normalBinding);
     }
     if (fr[0].matchWord("NormalIndices"))
     {
@@ -194,10 +200,9 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
         iteratorAdvanced = true;
     }
 
-    Geometry::AttributeBinding colorBinding=Geometry::BIND_OFF;
+    deprecated_osg::Geometry::AttributeBinding colorBinding = deprecated_osg::Geometry::BIND_OFF;
     if (fr[0].matchWord("ColorBinding") && Geometry_matchBindingTypeStr(fr[1].getStr(),colorBinding))
     {
-        geom.setColorBinding(colorBinding);
         fr+=2;
         iteratorAdvanced = true;
     }
@@ -209,6 +214,7 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
         if (colors)
         {
             geom.setColorArray(colors);
+            geom.setColorBinding(colorBinding);
         }
         iteratorAdvanced = true;
     }
@@ -225,10 +231,9 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
     }
 
 
-    Geometry::AttributeBinding secondaryColorBinding=Geometry::BIND_OFF;
+    deprecated_osg::Geometry::AttributeBinding secondaryColorBinding = deprecated_osg::Geometry::BIND_OFF;
     if (fr[0].matchWord("SecondaryColorBinding") && Geometry_matchBindingTypeStr(fr[1].getStr(),secondaryColorBinding))
     {
-        geom.setSecondaryColorBinding(secondaryColorBinding);
         fr+=2;
         iteratorAdvanced = true;
     }
@@ -240,6 +245,7 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
         if (colors)
         {
             geom.setSecondaryColorArray(colors);
+            geom.setSecondaryColorBinding(secondaryColorBinding);
         }
         iteratorAdvanced = true;
     }
@@ -256,10 +262,9 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
     }
 
 
-    Geometry::AttributeBinding fogCoordBinding=Geometry::BIND_OFF;
+    deprecated_osg::Geometry::AttributeBinding fogCoordBinding = deprecated_osg::Geometry::BIND_OFF;
     if (fr[0].matchWord("FogCoordBinding") && Geometry_matchBindingTypeStr(fr[1].getStr(),fogCoordBinding))
     {
-        geom.setFogCoordBinding(fogCoordBinding);
         fr+=2;
         iteratorAdvanced = true;
     }
@@ -271,6 +276,7 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
         if (fogcoords)
         {
             geom.setFogCoordArray(fogcoords);
+            geom.setFogCoordBinding(fogCoordBinding);
         }
         iteratorAdvanced = true;
     }
@@ -316,29 +322,27 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
         iteratorAdvanced = true;
     }
 
-    Geometry::AttributeBinding vertexAttribBinding=Geometry::BIND_OFF;
+    deprecated_osg::Geometry::AttributeBinding vertexAttribBinding = deprecated_osg::Geometry::BIND_OFF;
     if (fr.matchSequence("VertexAttribBinding %i %w") && Geometry_matchBindingTypeStr(fr[2].getStr(),vertexAttribBinding))
     {
         int unit=0;
         fr[1].getInt(unit);
-        geom.setVertexAttribBinding(unit,vertexAttribBinding);
         fr+=3;
         iteratorAdvanced = true;
     }
 
+    bool vertexAttribNormalize = false;
     if (fr.matchSequence("VertexAttribNormalize %i %w"))
     {
         int unit=0;
         fr[1].getInt(unit);
 
-        if (fr[2].matchString("TRUE"))
-            geom.setVertexAttribNormalize(unit,GL_TRUE);
-        else
-            geom.setVertexAttribNormalize(unit,GL_FALSE);
+        vertexAttribNormalize = fr[2].matchString("TRUE");
 
         fr+=3;
         iteratorAdvanced = true;
     }
+
 
     if (fr.matchSequence("VertexAttribArray %i"))
     {
@@ -350,6 +354,8 @@ bool Geometry_readLocalData(Object& obj, Input& fr)
         if (vertexattrib)
         {
             geom.setVertexAttribArray(unit,vertexattrib);
+            geom.setVertexAttribBinding(unit,vertexAttribBinding);
+            geom.setVertexAttribNormalize(unit,vertexAttribNormalize);
         }
         iteratorAdvanced = true;
 
@@ -1271,7 +1277,7 @@ bool Primitive_writeLocalData(const PrimitiveSet& prim,Output& fw)
 
 bool Geometry_writeLocalData(const Object& obj, Output& fw)
 {
-    const Geometry& geom = static_cast<const Geometry&>(obj);
+    const deprecated_osg::Geometry& geom = static_cast<const deprecated_osg::Geometry&>(obj);
 
     const Geometry::PrimitiveSetList& primitives = geom.getPrimitiveSetList();
     if (!primitives.empty())
@@ -1361,71 +1367,76 @@ bool Geometry_writeLocalData(const Object& obj, Output& fw)
         Array_writeLocalData(*geom.getFogCoordIndices(),fw);
     }
 
-    const Geometry::ArrayDataList& tcal=geom.getTexCoordArrayList();
+    const Geometry::ArrayList& tcal=geom.getTexCoordArrayList();
     unsigned int i;
     for(i=0;i<tcal.size();++i)
     {
-        if (tcal[i].array.valid())
+        const osg::Array* array = tcal[i].get();
+        if (array)
         {
             fw.indent()<<"TexCoordArray "<<i<<" ";
-            Array_writeLocalData(*(tcal[i].array),fw);
+            Array_writeLocalData(*array,fw);
         }
-        if (tcal[i].indices.valid())
+
+        const osg::IndexArray* indices = (array!=0) ? dynamic_cast<const osg::IndexArray*>(array->getUserData()) : 0;
+        if (indices)
         {
             fw.indent()<<"TexCoordIndices "<<i<<" ";
-            Array_writeLocalData(*(tcal[i].indices),fw);
+            Array_writeLocalData(*indices,fw);
         }
     }
 
-    const Geometry::ArrayDataList& vaal=geom.getVertexAttribArrayList();
+    const Geometry::ArrayList& vaal=geom.getVertexAttribArrayList();
     for(i=0;i<vaal.size();++i)
     {
-        const osg::Geometry::ArrayData& arrayData = vaal[i];
+        const osg::Array* array = vaal[i].get();
 
-        if (arrayData.array.valid())
+        if (array)
         {
-            fw.indent()<<"VertexAttribBinding "<<i<<" "<<Geometry_getBindingTypeStr(arrayData.binding)<<std::endl;
+            fw.indent()<<"VertexAttribBinding "<<i<<" "<<Geometry_getBindingTypeStr(static_cast<deprecated_osg::Geometry::AttributeBinding>(array->getBinding()))<<std::endl;
 
-            if (arrayData.normalize)
+            if (array->getNormalize())
                 fw.indent()<<"VertexAttribNormalize "<<i<<" TRUE"<<std::endl;
             else
                 fw.indent()<<"VertexAttribNormalize "<<i<<" FALSE"<<std::endl;
 
             fw.indent()<<"VertexAttribArray "<<i<<" ";
-            Array_writeLocalData(*(arrayData.array),fw);
+            Array_writeLocalData(*array,fw);
         }
-        if (arrayData.indices.valid())
+
+        const osg::IndexArray* indices = (array!=0) ? dynamic_cast<const osg::IndexArray*>(array->getUserData()) : 0;
+        if (indices)
         {
             fw.indent()<<"VertexAttribIndices "<<i<<" ";
-            Array_writeLocalData(*(arrayData.indices),fw);
+            Array_writeLocalData(*indices,fw);
         }
     }
 
     return true;
 }
 
-bool Geometry_matchBindingTypeStr(const char* str,Geometry::AttributeBinding& mode)
+bool Geometry_matchBindingTypeStr(const char* str,deprecated_osg::Geometry::AttributeBinding& mode)
 {
-    if (strcmp(str,"OFF")==0) mode = Geometry::BIND_OFF;
-    else if (strcmp(str,"OVERALL")==0) mode = Geometry::BIND_OVERALL;
-    else if (strcmp(str,"PER_PRIMITIVE")==0) mode = Geometry::BIND_PER_PRIMITIVE;
-    else if (strcmp(str,"PER_PRIMITIVE_SET")==0) mode = Geometry::BIND_PER_PRIMITIVE_SET;
-    else if (strcmp(str,"PER_VERTEX")==0) mode = Geometry::BIND_PER_VERTEX;
+    if (strcmp(str,"OFF")==0) mode = deprecated_osg::Geometry::BIND_OFF;
+    else if (strcmp(str,"OVERALL")==0) mode = deprecated_osg::Geometry::BIND_OVERALL;
+    else if (strcmp(str,"PER_PRIMITIVE")==0) mode = deprecated_osg::Geometry::BIND_PER_PRIMITIVE;
+    else if (strcmp(str,"PER_PRIMITIVE_SET")==0) mode = deprecated_osg::Geometry::BIND_PER_PRIMITIVE_SET;
+    else if (strcmp(str,"PER_VERTEX")==0) mode = deprecated_osg::Geometry::BIND_PER_VERTEX;
     else return false;
     return true;
 }
 
 
-const char* Geometry_getBindingTypeStr(Geometry::AttributeBinding mode)
+const char* Geometry_getBindingTypeStr(deprecated_osg::Geometry::AttributeBinding mode)
 {
     switch(mode)
     {
-        case (Geometry::BIND_OVERALL)           : return "OVERALL";
-        case (Geometry::BIND_PER_PRIMITIVE)     : return "PER_PRIMITIVE";
-        case (Geometry::BIND_PER_PRIMITIVE_SET) : return "PER_PRIMITIVE_SET";
-        case (Geometry::BIND_PER_VERTEX)        : return "PER_VERTEX";
-        case (Geometry::BIND_OFF)               :
-        default                                        : return "OFF";
+        case (deprecated_osg::Geometry::BIND_OVERALL)           : return "OVERALL";
+        case (deprecated_osg::Geometry::BIND_PER_PRIMITIVE)     : return "PER_PRIMITIVE";
+        case (deprecated_osg::Geometry::BIND_PER_PRIMITIVE_SET) : return "PER_PRIMITIVE_SET";
+        case (deprecated_osg::Geometry::BIND_PER_VERTEX)        : return "PER_VERTEX";
+        case (deprecated_osg::Geometry::BIND_OFF)               :
+        default                                 : return "OFF";
     }
 }
 

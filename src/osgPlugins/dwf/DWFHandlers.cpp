@@ -171,7 +171,8 @@ TK_Status DWFShellHandler::Execute( BStreamFileToolkit& parser )
 
 			// POLYGON
 			osg::Vec3Array* vertices = new osg::Vec3Array;
-			for ( int vert_ind = 0, face_num = 0; vert_ind < n_verts_in_face; ++vert_ind, ++ind_face_list, ++face_num )
+            int face_num = 0;
+			for ( int vert_ind = 0; vert_ind < n_verts_in_face; ++vert_ind, ++ind_face_list, ++face_num )
 			{
 				vertices->push_back (
 		                     osg::Vec3 (

@@ -29,6 +29,7 @@
 
 #include <X11/Xmd.h>
 #include <X11/keysym.h>
+#include <X11/XKBlib.h>
 #include <X11/cursorfont.h>
 
 #include <X11/Xmd.h>        /* For CARD16 */
@@ -840,8 +841,7 @@ void GraphicsWindowX11::init()
         }
     }
 
-
-
+    getEventQueue()->syncWindowRectangleWithGraphcisContext();
 }
 
 bool GraphicsWindowX11::createWindow()
@@ -1055,7 +1055,9 @@ bool GraphicsWindowX11::realizeImplementation()
 
     XMapWindow( _display, _window );
 
-//    Window temp = _window;
+    getEventQueue()->syncWindowRectangleWithGraphcisContext();
+
+    //    Window temp = _window;
 //    XSetWMColormapWindows( _display, _window, &temp, 1);
 
     _realized = true;
@@ -1195,9 +1197,9 @@ void GraphicsWindowX11::swapBuffersImplementation()
     }
 }
 
-void GraphicsWindowX11::checkEvents()
+bool GraphicsWindowX11::checkEvents()
 {
-    if (!_realized) return;
+    if (!_realized) return false;
 
     Display* display = _eventDisplay;
 
@@ -1562,6 +1564,8 @@ void GraphicsWindowX11::checkEvents()
             requestRedraw();
         }
     }
+    
+    return !(getEventQueue()->empty());
 }
 
 void GraphicsWindowX11::grabFocus()
@@ -1619,7 +1623,7 @@ void GraphicsWindowX11::adaptKey(XKeyEvent& keyevent, int& keySymbol, int& unmod
         keySymbol = buffer_return[0];
     }
 
-    unmodifiedKeySymbol = XKeycodeToKeysym(keyevent.display, keyevent.keycode, 0);
+    unmodifiedKeySymbol = XkbKeycodeToKeysym(keyevent.display, keyevent.keycode, 0, 0);
 }
 
 // Function to inject artificial key presses/releases.
@@ -2147,31 +2151,61 @@ extern "C" void graphicswindow_X11(void)
     osg::GraphicsContext::setWindowingSystemInterface(new X11WindowingSystemInterface);
 }
 
-
 void GraphicsWindowX11::raiseWindow()
 {
     Display* display = getDisplayToUse();
-    XWindowAttributes winAttrib;
+    if(!display) return;
 
-    Window root_return, parent_return, *children;
-    unsigned int nchildren, i=0;
-    XTextProperty windowName;
-    bool xraise = false;
-
-
-    XQueryTree(display, _parent, &root_return, &parent_return, &children, &nchildren);
-    while (!xraise &&  i<nchildren)
+    // get handles to window props of interest
+    Atom stateAbove = XInternAtom(display, "_NET_WM_STATE_ABOVE", True);
+    Atom stateAtom = XInternAtom(display, "_NET_WM_STATE", True);
+    // check that atoms are supported
+    if(stateAbove != None && stateAtom != None)
     {
-    XGetWMName(display,children[i++],&windowName);
-        if ((windowName.nitems != 0) && (strcmp(_traits->windowName.c_str(),(const char *)windowName.value) == 0)) xraise = true;
+        // fill an XEvent struct to send
+        XEvent xev;
+        xev.xclient.type = ClientMessage;
+        xev.xclient.serial = 0;
+        xev.xclient.send_event = True;
+        xev.xclient.window = _window;
+        xev.xclient.message_type = stateAtom;
+        xev.xclient.format = 32;
+        xev.xclient.data.l[0] = 1;
+        xev.xclient.data.l[1] = stateAbove;
+        xev.xclient.data.l[2] = 0;
+        
+        XSendEvent(display, RootWindow(display, DefaultScreen(display)),
+                   False,  SubstructureRedirectMask | SubstructureNotifyMask, &xev);
     }
-    if (xraise) XRaiseWindow(display,_window);
     else
     {
-    XGetWindowAttributes(display, _window, &winAttrib);
-    XReparentWindow(display, _window, _parent, winAttrib.x, winAttrib.y);
+        // one or both of _NET_WM_STATE and _NET_WM_STATE_ABOVE aren't supported
+        // try to use XRaiseWindow
+        XWindowAttributes winAttrib;
+
+        Window root_return, parent_return, *children;
+        unsigned int nchildren, i=0;
+        XTextProperty windowName;
+        bool xraise = false;
+
+        // get the window tree around our current window
+        XQueryTree(display, _parent, &root_return, &parent_return, &children, &nchildren);
+        while (!xraise &&  i<nchildren)
+        {
+            XGetWMName(display,children[i++],&windowName);
+            if ((windowName.nitems != 0) && (strcmp(_traits->windowName.c_str(),(const char *)windowName.value) == 0))
+                xraise = true;
+        }
+        if (xraise)
+            XRaiseWindow(display,_window);
+        else
+        {
+            XGetWindowAttributes(display, _window, &winAttrib);
+            XReparentWindow(display, _window, _parent, winAttrib.x, winAttrib.y);
+        }
+
+        XFree(children);
     }
-    XFree(children);
 
     XFlush(display);
     XSync(display,0);

@@ -12,7 +12,7 @@
 */
 
 //
-// OpenFlight® loader for OpenSceneGraph
+// OpenFlight loader for OpenSceneGraph
 //
 //  Copyright (C) 2005-2007  Brede Johansen
 //
@@ -28,6 +28,8 @@
 #include "Registry.h"
 #include "Document.h"
 #include "RecordInputStream.h"
+
+#include <osg/ValueObject>
 
 #include <algorithm>
 
@@ -88,7 +90,7 @@ void addDrawableAndReverseWindingOrder( osg::Geode* geode )
                         reverseWindingOrder( vertices, drawarray->getMode(), first, last );
                     }
 
-                    if( geom->getNormalBinding( ) == osg::Geometry::BIND_PER_VERTEX )
+                    if( osg::getBinding(geom->getNormalArray()) == osg::Array::BIND_PER_VERTEX )
                     {
                         osg::Vec3Array* normals = dynamic_cast<osg::Vec3Array*>(geom->getNormalArray());
                         if( normals )
@@ -102,7 +104,7 @@ void addDrawableAndReverseWindingOrder( osg::Geode* geode )
                         }
                     }
 
-                    if( geom->getColorBinding( ) == osg::Geometry::BIND_PER_VERTEX )
+                    if( osg::getBinding(geom->getColorArray()) == osg::Array::BIND_PER_VERTEX )
                     {
                         osg::Vec4Array* colors = dynamic_cast<osg::Vec4Array*>(geom->getColorArray());
                         if( colors )
@@ -347,7 +349,7 @@ protected:
     virtual void readRecord(RecordInputStream& in, Document& document)
     {
         std::string id = in.readString(8);
-        /*int32 IRColor =*/ in.readInt32();
+        int32 IRColor = in.readInt32();
         /*int16 relativePriority =*/ in.readInt16();
         _drawFlag = in.readUInt8(SOLID_NO_BACKFACE);
         uint8 texturedWhite = in.readUInt8();
@@ -358,8 +360,8 @@ protected:
         /*int detailTexture =*/ in.readInt16(-1);
         int textureIndex = in.readInt16(-1);
         int materialIndex = in.readInt16(-1);
-        /*int16 surface =*/ in.readInt16();
-        /*int16 feature =*/ in.readInt16();
+        int16 surface = in.readInt16();
+        int16 feature = in.readInt16();
         /*int32 IRMaterial =*/ in.readInt32(-1);
         _transparency = in.readUInt16(0);
         // version > 13
@@ -447,6 +449,24 @@ protected:
             col.a() = 1.0f - getTransparency();
             osg::Material* material = document.getOrCreateMaterialPool()->getOrCreateMaterial(materialIndex,col);
             stateset->setAttribute(material);
+        }
+
+        // IRColor (IRC)
+        if (document.getPreserveNonOsgAttrsAsUserData() && 0 != IRColor)
+        {
+          _geometry->setUserValue("<UA:IRC>", IRColor);
+        }
+
+        // surface (SMC)
+        if (document.getPreserveNonOsgAttrsAsUserData() && 0 != surface)
+        {
+          _geometry->setUserValue("<UA:SMC>", surface);
+        }
+
+        // feature (FID)
+        if (document.getPreserveNonOsgAttrsAsUserData() && 0 != feature)
+        {
+          _geometry->setUserValue("<UA:FID>", feature);
         }
 
         // Shaders
@@ -561,7 +581,7 @@ protected:
                     if (isGouraud())
                     {
                         // Color per vertex
-                        geometry->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+                        if (geometry->getColorArray()) geometry->getColorArray()->setBinding(osg::Array::BIND_PER_VERTEX);
                     }
                     else
                     {
@@ -569,21 +589,19 @@ protected:
                         osg::Vec4 col = getPrimaryColor();
                         col[3] = 1.0f - getTransparency();
 
-                        geometry->setColorBinding(osg::Geometry::BIND_OVERALL);
                         osg::Vec4Array* colors = new osg::Vec4Array(1);
                         (*colors)[0] = col;
-                        geometry->setColorArray(colors);
+                        geometry->setColorArray(colors, osg::Array::BIND_OVERALL);
                     }
 
                     // Normal binding
                     if (isLit())
                     {
-                        geometry->setNormalBinding(osg::Geometry::BIND_PER_VERTEX );
+                        if (geometry->getNormalArray()) geometry->getNormalArray()->setBinding(osg::Array::BIND_PER_VERTEX);
                     }
                     else
                     {
-                        geometry->setNormalBinding(osg::Geometry::BIND_OFF);
-                        geometry->setNormalArray(NULL);
+                        geometry->setNormalArray(0);
                     }
                 }
             }
@@ -920,7 +938,7 @@ protected:
     {
         std::string id = in.readString(8);
         in.forward(4);
-        /*int32 IRColor =*/ in.readInt32();
+        int32 IRColor = in.readInt32();
         /*int16 relativePriority =*/ in.readInt16();
         _drawFlag = in.readUInt8(SOLID_NO_BACKFACE);
         uint8 texturedWhite = in.readUInt8();
@@ -931,8 +949,8 @@ protected:
         /*int detailTexture =*/ in.readInt16(-1);
         int textureIndex = in.readInt16(-1);
         int materialIndex = in.readInt16(-1);
-        /*int16 surface =*/ in.readInt16();
-        /*int16 feature =*/ in.readInt16();
+        int16 surface = in.readInt16();
+        int16 feature = in.readInt16();
         /*int32 IRMaterial =*/ in.readInt32(-1);
         _transparency = in.readUInt16(0);
         // version > 13
@@ -1016,6 +1034,24 @@ protected:
             col.a() = 1.0f - getTransparency();
             osg::Material* material = document.getOrCreateMaterialPool()->getOrCreateMaterial(materialIndex,col);
             stateset->setAttribute(material);
+        }
+
+        // IRColor (IRC)
+        if (document.getPreserveNonOsgAttrsAsUserData() && 0 != IRColor)
+        {
+          _geode->setUserValue("<UA:IRC>", IRColor);
+        }
+
+        // surface (SMC)
+        if (document.getPreserveNonOsgAttrsAsUserData() && 0 != surface)
+        {
+          _geode->setUserValue("<UA:SMC>", surface);
+        }
+
+        // feature (FID)
+        if (document.getPreserveNonOsgAttrsAsUserData() && 0 != feature)
+        {
+          _geode->setUserValue("<UA:FID>", feature);
         }
 
         // Shaders
@@ -1375,7 +1411,7 @@ protected:
         if (mesh->isGouraud())
         {
             // Color per vertex
-            geometry->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+            if (geometry->getColorArray()) geometry->getColorArray()->setBinding(osg::Array::BIND_PER_VERTEX);
         }
         else
         {
@@ -1383,21 +1419,20 @@ protected:
             osg::Vec4 col = mesh->getPrimaryColor();
             col[3] = 1.0f - mesh->getTransparency();
 
-            geometry->setColorBinding(osg::Geometry::BIND_OVERALL);
+
             osg::Vec4Array* colors = new osg::Vec4Array(1);
             (*colors)[0] = col;
-            geometry->setColorArray(colors);
+            geometry->setColorArray(colors, osg::Array::BIND_OVERALL);
         }
 
         // Normal binding
         if (mesh->isLit())
         {
-            geometry->setNormalBinding(osg::Geometry::BIND_PER_VERTEX );
+            if (geometry->getNormalArray()) geometry->getNormalArray()->setBinding(osg::Array::BIND_PER_VERTEX);
         }
         else
         {
-            geometry->setNormalBinding(osg::Geometry::BIND_OFF);
-            geometry->setNormalArray(NULL);
+            geometry->setNormalArray(0);
         }
 
         mesh->addGeometry(*geometry);

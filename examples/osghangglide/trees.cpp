@@ -166,10 +166,10 @@ static Geometry *makeTree( _tree *tree, StateSet *dstate )
 {
     float vv[][3] =
     {
-        { -tree->w/2.0, 0.0, 0.0 },
-        {  tree->w/2.0,  0.0, 0.0 },
-        {  tree->w/2.0, 0.0, 2 * tree->h },
-        { -tree->w/2.0, 0.0, 2 * tree->h },
+        { -tree->w/2.0f, 0.0f, 0.0f },
+        {  tree->w/2.0f, 0.0f, 0.0f },
+        {  tree->w/2.0f, 0.0f, 2.0f * tree->h },
+        { -tree->w/2.0f, 0.0f, 2.0f * tree->h },
     };
 
     Vec3Array& v = *(new Vec3Array(4));
@@ -198,8 +198,7 @@ static Geometry *makeTree( _tree *tree, StateSet *dstate )
 
     geom->setTexCoordArray( 0, &t );
 
-    geom->setColorArray( &l );
-    geom->setColorBinding( Geometry::BIND_OVERALL );
+    geom->setColorArray( &l, Array::BIND_OVERALL );
 
     geom->addPrimitiveSet( new DrawArrays(PrimitiveSet::QUADS,0,4) );
 
@@ -238,7 +237,7 @@ Node *makeTrees( void )
     tex->setImage(osgDB::readImageFile("Images/tree0.rgba"));
 
     StateSet *dstate = new StateSet;
-    
+
     dstate->setTextureAttributeAndModes(0, tex, StateAttribute::ON );
     dstate->setTextureAttribute(0, new TexEnv );
 
@@ -249,7 +248,7 @@ Node *makeTrees( void )
     dstate->setAttributeAndModes( alphaFunc, StateAttribute::ON );
 
     dstate->setMode( GL_LIGHTING, StateAttribute::OFF );
-    
+
     dstate->setRenderingHint( StateSet::TRANSPARENT_BIN );
 
     int tt[] = { 15, 30, 45, 58, 72, 75, 93, 96, 105, -1 };

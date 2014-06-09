@@ -78,15 +78,6 @@ struct ConvertToBindPerVertex {
                         result->push_back(array[p]);
                 }
                 break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    unsigned int nb = primitives[p]->getNumPrimitives();
-                    for (unsigned int i = 0; i < nb; i++) {
-                        result->push_back(array[i]);
-                        result->push_back(array[i]);
-                    }
-                }
-                break;
                 }
                 break;
 
@@ -108,16 +99,6 @@ struct ConvertToBindPerVertex {
                         result->push_back(array[p]);
                 }
                 break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    unsigned int nb = primitives[p]->getNumPrimitives();
-                    for (unsigned int i = 0; i < nb; i++) {
-                        result->push_back(array[i]);
-                        result->push_back(array[i]);
-                        result->push_back(array[i]);
-                    }
-                }
-                break;
                 }
                 break;
 
@@ -135,11 +116,6 @@ struct ConvertToBindPerVertex {
                 case osg::Geometry::BIND_PER_PRIMITIVE_SET:
                 {
                     osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE_SET to BIND_PER_VERTEX, for TRIANGLE_STRIP" << std::endl;
-                }
-                break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE to BIND_PER_VERTEX, for TRIANGLE_STRIP" << std::endl;
                 }
                 break;
                 }
@@ -161,11 +137,6 @@ struct ConvertToBindPerVertex {
                     osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE_SET to BIND_PER_VERTEX, for TRIANGLE_FAN" << std::endl;
                 }
                 break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE to BIND_PER_VERTEX, for TRIANGLE_FAN" << std::endl;
-                }
-                break;
                 }
                 break;
 
@@ -185,11 +156,6 @@ struct ConvertToBindPerVertex {
                     osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE_SET to BIND_PER_VERTEX, for QUADS" << std::endl;
                 }
                 break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE to BIND_PER_VERTEX, for QUADS" << std::endl;
-                }
-                break;
                 }
                 break;
 
@@ -207,11 +173,6 @@ struct ConvertToBindPerVertex {
                 case osg::Geometry::BIND_PER_PRIMITIVE_SET:
                 {
                     osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE_SET to BIND_PER_VERTEX, for QUAD_STRIP" << std::endl;
-                }
-                break;
-                case osg::Geometry::BIND_PER_PRIMITIVE:
-                {
-                    osg::notify(osg::FATAL) << "Can't convert Array from BIND_PER_PRIMITIVE to BIND_PER_VERTEX, for QUAD_STRIP" << std::endl;
                 }
                 break;
                 }

@@ -32,12 +32,6 @@
 using namespace osg;
 using namespace osgUtil;
 
-#if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GL3_AVAILABLE)
-    // define under GLES to keep the main SceneView.cpp clean.
-    #define GL_BACK_LEFT        0x0402
-    #define GL_BACK_RIGHT       0x0403
-#endif
-
 static const GLubyte patternVertEven[] = {
     0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
     0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
@@ -161,6 +155,8 @@ SceneView::SceneView(DisplaySettings* ds)
     _interlacedStereoStencilHeight = 0;
 
     _dynamicObjectCount = 0;
+
+    _resetColorMaskToAllEnabled = true;
 }
 
 SceneView::SceneView(const SceneView& rhs, const osg::CopyOp& copyop):
@@ -194,6 +190,8 @@ SceneView::SceneView(const SceneView& rhs, const osg::CopyOp& copyop):
     _interlacedStereoStencilHeight = rhs._interlacedStereoStencilHeight;
 
     _dynamicObjectCount = 0;
+
+    _resetColorMaskToAllEnabled = rhs._resetColorMaskToAllEnabled;
 }
 
 SceneView::~SceneView()
@@ -209,7 +207,9 @@ void SceneView::setDefaults(unsigned int options)
     _camera->getViewMatrix().makeIdentity();
 
     if (!_globalStateSet) _globalStateSet = new osg::StateSet;
-    else _globalStateSet->clear();
+
+    // clear the global StateSet (main Camera's StateSet) if required
+    if ((options & CLEAR_GLOBAL_STATESET)) _globalStateSet->clear();
 
     if ((options & HEADLIGHT) || (options & SKY_LIGHT))
     {
@@ -272,16 +272,20 @@ void SceneView::setDefaults(unsigned int options)
     _cullVisitor->setStateGraph(_stateGraph.get());
     _cullVisitor->setRenderStage(_renderStage.get());
 
-    _globalStateSet->setGlobalDefaults();
+    // apply defaults on the global StateSet (main Camera's StateSet) if required
+    if ((options&APPLY_GLOBAL_DEFAULTS))
+    {
+        _globalStateSet->setGlobalDefaults();
 
-    #if defined(OSG_GL_FIXED_FUNCTION_AVAILABLE)
-        // set up an texture environment by default to speed up blending operations.
-         osg::TexEnv* texenv = new osg::TexEnv;
-         texenv->setMode(osg::TexEnv::MODULATE);
-         _globalStateSet->setTextureAttributeAndModes(0,texenv, osg::StateAttribute::ON);
-    #endif
+        #if defined(OSG_GL_FIXED_FUNCTION_AVAILABLE)
+            // set up an texture environment by default to speed up blending operations.
+            osg::TexEnv* texenv = new osg::TexEnv;
+            texenv->setMode(osg::TexEnv::MODULATE);
+            _globalStateSet->setTextureAttributeAndModes(0,texenv, osg::StateAttribute::ON);
+        #endif
 
-    _camera->setClearColor(osg::Vec4(0.2f, 0.2f, 0.4f, 1.0f));
+        _camera->setClearColor(osg::Vec4(0.2f, 0.2f, 0.4f, 1.0f));
+    }
 }
 
 void SceneView::setCamera(osg::Camera* camera, bool assumeOwnershipOfCamera)
@@ -429,48 +433,15 @@ void SceneView::updateUniforms()
 
 osg::Matrixd SceneView::computeLeftEyeProjectionImplementation(const osg::Matrixd& projection) const
 {
-    double iod = _displaySettings->getEyeSeparation();
-    double sd = _displaySettings->getScreenDistance();
-    double scale_x = 1.0;
-    double scale_y = 1.0;
-
-    if (_displaySettings->getSplitStereoAutoAdjustAspectRatio())
-    {
-        switch(_displaySettings->getStereoMode())
-        {
-            case(osg::DisplaySettings::HORIZONTAL_SPLIT):
-                scale_x = 2.0;
-                break;
-            case(osg::DisplaySettings::VERTICAL_SPLIT):
-                scale_y = 2.0;
-                break;
-            default:
-                break;
-        }
-    }
-
-    if (_displaySettings->getDisplayType()==osg::DisplaySettings::HEAD_MOUNTED_DISPLAY)
-    {
-        // head mounted display has the same projection matrix for left and right eyes.
-        return osg::Matrixd::scale(scale_x,scale_y,1.0) *
-               projection;
-    }
-    else
-    {
-        // all other display types assume working like a projected power wall
-        // need to shjear projection matrix to account for asymetric frustum due to eye offset.
-        return osg::Matrixd(1.0,0.0,0.0,0.0,
-                           0.0,1.0,0.0,0.0,
-                           iod/(2.0*sd),0.0,1.0,0.0,
-                           0.0,0.0,0.0,1.0) *
-               osg::Matrixd::scale(scale_x,scale_y,1.0) *
-               projection;
-    }
+    return _displaySettings.valid() ? _displaySettings->computeLeftEyeProjectionImplementation(projection) : projection;
 }
 
 osg::Matrixd SceneView::computeLeftEyeViewImplementation(const osg::Matrixd& view) const
 {
-    double fusionDistance = _displaySettings->getScreenDistance();
+    if (!_displaySettings) return view;
+
+    double sd = _displaySettings->getScreenDistance();
+    double fusionDistance = sd;
     switch(_fusionDistanceMode)
     {
         case(USE_FUSION_DISTANCE_VALUE):
@@ -480,62 +451,22 @@ osg::Matrixd SceneView::computeLeftEyeViewImplementation(const osg::Matrixd& vie
             fusionDistance *= _fusionDistanceValue;
             break;
     }
+    double eyeScale = (fusionDistance/sd);
 
-    double iod = _displaySettings->getEyeSeparation();
-    double sd = _displaySettings->getScreenDistance();
-    double es = 0.5f*iod*(fusionDistance/sd);
-
-    return view *
-           osg::Matrixd(1.0,0.0,0.0,0.0,
-                       0.0,1.0,0.0,0.0,
-                       0.0,0.0,1.0,0.0,
-                       es,0.0,0.0,1.0);
+    return _displaySettings->computeLeftEyeViewImplementation(view, eyeScale);
 }
 
 osg::Matrixd SceneView::computeRightEyeProjectionImplementation(const osg::Matrixd& projection) const
 {
-    double iod = _displaySettings->getEyeSeparation();
-    double sd = _displaySettings->getScreenDistance();
-    double scale_x = 1.0;
-    double scale_y = 1.0;
-
-    if (_displaySettings->getSplitStereoAutoAdjustAspectRatio())
-    {
-        switch(_displaySettings->getStereoMode())
-        {
-            case(osg::DisplaySettings::HORIZONTAL_SPLIT):
-                scale_x = 2.0;
-                break;
-            case(osg::DisplaySettings::VERTICAL_SPLIT):
-                scale_y = 2.0;
-                break;
-            default:
-                break;
-        }
-    }
-
-    if (_displaySettings->getDisplayType()==osg::DisplaySettings::HEAD_MOUNTED_DISPLAY)
-    {
-        // head mounted display has the same projection matrix for left and right eyes.
-        return osg::Matrixd::scale(scale_x,scale_y,1.0) *
-               projection;
-    }
-    else
-    {
-        // all other display types assume working like a projected power wall
-        // need to shjear projection matrix to account for asymetric frustum due to eye offset.
-        return osg::Matrixd(1.0,0.0,0.0,0.0,
-                           0.0,1.0,0.0,0.0,
-                           -iod/(2.0*sd),0.0,1.0,0.0,
-                           0.0,0.0,0.0,1.0) *
-               osg::Matrixd::scale(scale_x,scale_y,1.0) *
-               projection;
-    }
+    return _displaySettings.valid() ? _displaySettings->computeRightEyeProjectionImplementation(projection) : projection;
 }
 
 osg::Matrixd SceneView::computeRightEyeViewImplementation(const osg::Matrixd& view) const
 {
-    float fusionDistance = _displaySettings->getScreenDistance();
+    if (!_displaySettings) return view;
+
+    double sd = _displaySettings->getScreenDistance();
+    double fusionDistance = sd;
     switch(_fusionDistanceMode)
     {
         case(USE_FUSION_DISTANCE_VALUE):
@@ -545,16 +476,9 @@ osg::Matrixd SceneView::computeRightEyeViewImplementation(const osg::Matrixd& vi
             fusionDistance *= _fusionDistanceValue;
             break;
     }
+    double eyeScale = (fusionDistance/sd);
 
-    double iod = _displaySettings->getEyeSeparation();
-    double sd = _displaySettings->getScreenDistance();
-    double es = 0.5*iod*(fusionDistance/sd);
-
-    return view *
-           osg::Matrixd(1.0,0.0,0.0,0.0,
-                       0.0,1.0,0.0,0.0,
-                       0.0,0.0,1.0,0.0,
-                       -es,0.0,0.0,1.0);
+    return _displaySettings->computeRightEyeViewImplementation(view, eyeScale);
 }
 
 void SceneView::computeLeftEyeViewport(const osg::Viewport *viewport)
@@ -562,6 +486,12 @@ void SceneView::computeLeftEyeViewport(const osg::Viewport *viewport)
     if(!viewport) return;
 
     if(!_viewportLeft.valid()) _viewportLeft = new osg::Viewport;
+
+    if (!_displaySettings)
+    {
+        (*_viewportLeft) = *viewport;
+        return;
+    }
 
     switch(_displaySettings->getStereoMode())
     {
@@ -603,7 +533,7 @@ void SceneView::computeLeftEyeViewport(const osg::Viewport *viewport)
         break;
 
         default:
-            _viewportLeft->setViewport(viewport->x(),viewport->y(),viewport->width(),viewport->height());
+            *(_viewportLeft) = *viewport;
             break;
     }
 }
@@ -612,7 +542,13 @@ void SceneView::computeRightEyeViewport(const osg::Viewport *viewport)
 {
     if(!viewport) return;
 
-    if(!_viewportRight.valid()) _viewportRight = new osg::Viewport;
+    if(!_viewportRight) _viewportRight = new osg::Viewport;
+
+    if (!_displaySettings)
+    {
+        (*_viewportRight) = *viewport;
+        return;
+    }
 
     switch(_displaySettings->getStereoMode())
     {
@@ -653,7 +589,7 @@ void SceneView::computeRightEyeViewport(const osg::Viewport *viewport)
         break;
 
         default:
-            _viewportRight->setViewport(viewport->x(),viewport->y(),viewport->width(),viewport->height());
+            *(_viewportRight) = *viewport;
             break;
     }
 }
@@ -740,19 +676,11 @@ void SceneView::cull()
         _renderInfo.setState(new osg::State);
     }
 
-    osg::State* state = _renderInfo.getState();
 
     if (!_localStateSet)
     {
         _localStateSet = new osg::StateSet;
     }
-
-    // we in theory should be able to be able to bypass reset, but we'll call it just incase.
-    //_state->reset();
-
-    state->setFrameStamp(_frameStamp.get());
-    state->setDisplaySettings(_displaySettings.get());
-
 
     if (!_cullVisitor)
     {
@@ -1043,6 +971,16 @@ void SceneView::draw()
     if (_camera->getNodeMask()==0) return;
 
     osg::State* state = _renderInfo.getState();
+
+    // we in theory should be able to be able to bypass reset, but we'll call it just incase.
+    //_state->reset();
+    state->setFrameStamp(_frameStamp.get());
+
+    if (_displaySettings.valid())
+    {
+        state->setDisplaySettings(_displaySettings.get());
+    }
+
     state->initializeExtensionProcs();
 
     osg::Texture::TextureObjectManager* tom = osg::Texture::getTextureObjectManager(state->getContextID()).get();
@@ -1424,19 +1362,21 @@ void SceneView::draw()
 
         _localStateSet->setAttribute(getViewport());
 
-
-        // ensure that all color planes are active.
-        osg::ColorMask* cmask = static_cast<osg::ColorMask*>(_localStateSet->getAttribute(osg::StateAttribute::COLORMASK));
-        if (cmask)
+        if (_resetColorMaskToAllEnabled)
         {
-            cmask->setMask(true,true,true,true);
+            // ensure that all color planes are active.
+            osg::ColorMask* cmask = static_cast<osg::ColorMask*>(_localStateSet->getAttribute(osg::StateAttribute::COLORMASK));
+            if (cmask)
+            {
+                cmask->setMask(true,true,true,true);
+            }
+            else
+            {
+                cmask = new osg::ColorMask(true,true,true,true);
+                _localStateSet->setAttribute(cmask);
+            }
+            _renderStage->setColorMask(cmask);
         }
-        else
-        {
-            cmask = new osg::ColorMask(true,true,true,true);
-            _localStateSet->setAttribute(cmask);
-        }
-        _renderStage->setColorMask(cmask);
 
         // bog standard draw.
         _renderStage->drawPreRenderStages(_renderInfo,previous);

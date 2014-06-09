@@ -648,10 +648,9 @@ osg::Geometry* ReaderWriterOBJ::convertElementListToGeometry(obj::Model& model, 
 
     osg::Geometry* geometry = new osg::Geometry;
     if (vertices) geometry->setVertexArray(vertices);
-
-    if (normals) {
-        geometry->setNormalArray(normals);
-        geometry->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    if (normals)
+    {
+        geometry->setNormalArray(normals, osg::Array::BIND_PER_VERTEX);
     }
 
     if (texcoords) {

@@ -511,7 +511,7 @@ void daeWriter::appendGeometryIndices(osg::Geometry *geom,
 
   if ( norm != NULL )
   {
-    if ( geom->getNormalBinding() == osg::Geometry::BIND_PER_VERTEX )
+    if ( osg::getBinding(geom->getNormalArray()) == osg::Array::BIND_PER_VERTEX )
       p->getValue().append( normals.inds!=NULL?normals.inds->index( vindex ):vindex );
     else
       p->getValue().append( normals.inds!=NULL?normals.inds->index( ncount ):ncount );
@@ -519,7 +519,7 @@ void daeWriter::appendGeometryIndices(osg::Geometry *geom,
 
   if ( color != NULL )
   {
-    if ( geom->getColorBinding() == osg::Geometry::BIND_PER_VERTEX )
+    if ( osg::getBinding(geom->getColorArray()) == osg::Array::BIND_PER_VERTEX )
       p->getValue().append( colors.inds!=NULL?colors.inds->index( vindex ):vindex );
     else
       p->getValue().append( colors.inds!=NULL?colors.inds->index( ccount ):ccount );
@@ -550,9 +550,12 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
     domPolygons *polys = NULL;
     domPolylist *polylist = NULL;
 
-    ArrayNIndices verts( geom->getVertexArray(), geom->getVertexIndices() );
-    ArrayNIndices normals( geom->getNormalArray(), geom->getNormalIndices() );
-    ArrayNIndices colors( geom->getColorArray(), geom->getColorIndices() );
+    // make sure no deprecated indices or binding exist
+    if (geom->containsDeprecatedData()) geom->fixDeprecatedData();
+
+    ArrayNIndices verts( geom->getVertexArray(), 0 );
+    ArrayNIndices normals( geom->getNormalArray(), 0 );
+    ArrayNIndices colors( geom->getColorArray(), 0 );
 
     // RS BUG
     // getNumTexCoordArrays may return larger number
@@ -562,7 +565,7 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
     {
         if (geom->getTexCoordArray(i))
         {
-            texcoords.push_back( ArrayNIndices( geom->getTexCoordArray( i ), geom->getTexCoordIndices( i ) ) );
+            texcoords.push_back( ArrayNIndices( geom->getTexCoordArray( i ), 0 ) );
         }
     }
     std::vector<ArrayNIndices> vertexAttributes;
@@ -570,7 +573,7 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
     {
         if (geom->getVertexAttribArray(i))
         {
-            vertexAttributes.push_back(ArrayNIndices( geom->getVertexAttribArray( i ), geom->getVertexAttribIndices(i)));
+            vertexAttributes.push_back(ArrayNIndices( geom->getVertexAttribArray( i ), 0));
         }
     }
 
@@ -579,7 +582,7 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
     {
         sName = name + "-positions";
         unsigned int elementSize = verts.getDAESize();
-        unsigned int numElements = verts.valArray->getNumElements();
+        unsigned int numElements = verts.valArray ? verts.valArray->getNumElements() : 0;
         pos = createSource( mesh, sName, elementSize );
         pos->getFloat_array()->setCount( numElements * elementSize );
         pos->getTechnique_common()->getAccessor()->setCount( numElements );
@@ -605,7 +608,7 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
     {
         sName = name + "-normals";
         unsigned int elementSize = normals.getDAESize();
-        unsigned int numElements = normals.valArray->getNumElements();
+        unsigned int numElements = normals.valArray ? normals.valArray->getNumElements() : 0;
         norm = createSource( mesh, sName, elementSize );
         norm->getFloat_array()->setCount( numElements * elementSize );
         norm->getTechnique_common()->getAccessor()->setCount( numElements );
@@ -628,7 +631,7 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
     {
         sName = name + "-colors";
         unsigned int elementSize = colors.getDAESize();
-        unsigned int numElements = colors.valArray->getNumElements();
+        unsigned int numElements = colors.valArray ? colors.valArray->getNumElements() : 0;
         color = createSource( mesh, sName, elementSize, true );
         color->getFloat_array()->setCount( numElements * elementSize );
         color->getTechnique_common()->getAccessor()->setCount( numElements );
@@ -657,7 +660,7 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
         sName = name + "-texcoord_" + intstr.str();
 
         unsigned int elementSize = texcoords[ti].getDAESize();
-        unsigned int numElements = texcoords[ti].valArray->getNumElements();
+        unsigned int numElements = texcoords[ti].valArray ? texcoords[ti].valArray->getNumElements() : 0;
         domSource *t = createSource( mesh, sName, elementSize, false, true );
         t->getFloat_array()->setCount( numElements * elementSize );
         t->getTechnique_common()->getAccessor()->setCount( numElements );
@@ -681,7 +684,7 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
         sName = name + "-vertexAttribute_" + intstr.str();
 
         unsigned int elementSize = vertexAttributes[ti].getDAESize();
-        unsigned int numElements = vertexAttributes[ti].valArray->getNumElements();
+        unsigned int numElements = vertexAttributes[ti].valArray ? vertexAttributes[ti].valArray->getNumElements() : 0;
         domSource *t = createSource( mesh, sName, elementSize, false, true );        // Sukender: should we *REALLY* call createSource(... false, true)? (I mean with such flags)
         t->getFloat_array()->setCount( numElements * elementSize );
         t->getTechnique_common()->getAccessor()->setCount( numElements );
@@ -920,17 +923,6 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
                                      verts,normals,colors,texcoords,
                                      ncount,ccount);
 
-                       if ( vcount>0 && ((vcount % primLength) == 0) )
-                       {
-                         if ( geom->getNormalBinding() == osg::Geometry::BIND_PER_PRIMITIVE )
-                         {
-                           ncount++;
-                         }
-                         if ( geom->getColorBinding() == osg::Geometry::BIND_PER_PRIMITIVE )
-                         {
-                           ccount++;
-                         }
-                       }
                        vcount++;
                     }
                     indexBegin+=nbVerticesPerPoly;
@@ -1019,17 +1011,6 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
                                                   verts,normals,colors,texcoords,
                                                   ncount,ccount);
 
-                            if ( primCount>0 && ((primCount % localPrimLength) == 0) )
-                            {
-                                if ( geom->getNormalBinding() == osg::Geometry::BIND_PER_PRIMITIVE )
-                                {
-                                    ncount++;
-                                }
-                                if ( geom->getColorBinding() == osg::Geometry::BIND_PER_PRIMITIVE )
-                                {
-                                    ccount++;
-                                }
-                            }
                             vindex++;
                         }
                         indexBegin+=nbVerticesPerPoly;
@@ -1119,17 +1100,6 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
                                               verts,normals,colors,texcoords,
                                               ncount,ccount);
 
-                        if ( primCount>0 && ((primCount % primLength) == 0) )
-                        {
-                            if ( geom->getNormalBinding() == osg::Geometry::BIND_PER_PRIMITIVE )
-                            {
-                              ncount++;
-                            }
-                            if ( geom->getColorBinding() == osg::Geometry::BIND_PER_PRIMITIVE )
-                            {
-                              ccount++;
-                            }
-                        }
                     }
 
                     primItrBegin+=nbVerticesPerPoly;
@@ -1217,18 +1187,6 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
                                        norm,color,
                                        verts,normals,colors,texcoords,
                                        ncount,ccount);
-
-                    if ( primCount>0 && ((primCount % primLength) == 0) )
-                    {
-                      if ( geom->getNormalBinding() == osg::Geometry::BIND_PER_PRIMITIVE )
-                      {
-                        ncount++;
-                      }
-                      if ( geom->getColorBinding() == osg::Geometry::BIND_PER_PRIMITIVE )
-                      {
-                        ccount++;
-                      }
-                    }
 
                   }
                   primItrBegin+=nbVerticesPerPoly;
@@ -1320,17 +1278,6 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
                                        verts,normals,colors,texcoords,
                                        ncount,ccount);
 
-                    if ( primCount>0 && ((primCount % primLength) == 0) )
-                    {
-                      if ( geom->getNormalBinding() == osg::Geometry::BIND_PER_PRIMITIVE )
-                      {
-                        ncount++;
-                      }
-                      if ( geom->getColorBinding() == osg::Geometry::BIND_PER_PRIMITIVE )
-                      {
-                        ccount++;
-                      }
-                    }
                   }
                   primItrBegin+=nbVerticesPerPoly;
 #if ( _SECURE_SCL == 1 )
@@ -1345,11 +1292,11 @@ bool daeWriter::processGeometry( osg::Geometry *geom, domGeometry *geo, const st
                 break;
         }
 
-        if ( geom->getNormalBinding() == osg::Geometry::BIND_PER_PRIMITIVE_SET )
+        if ( osg::getBinding(geom->getNormalArray()) == osg::Array::BIND_PER_PRIMITIVE_SET )
         {
             ncount++;
         }
-        if ( geom->getColorBinding() == osg::Geometry::BIND_PER_PRIMITIVE_SET )
+        if ( osg::getBinding(geom->getColorArray()) == osg::Array::BIND_PER_PRIMITIVE_SET )
         {
             ccount++;
         }

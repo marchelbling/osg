@@ -50,6 +50,7 @@
 
 using namespace osgUtil;
 
+// #define GEOMETRYDEPRECATED
 
 void Optimizer::reset()
 {
@@ -257,7 +258,7 @@ void Optimizer::optimize(osg::Node* node, unsigned int options)
             ++i;
         } while (result);
 
-        // no combine any adjacent static transforms.
+        // now combine any adjacent static transforms.
         CombineStaticTransformsVisitor cstv(this);
         node->accept(cstv);
         cstv.removeTransforms(node);
@@ -267,7 +268,7 @@ void Optimizer::optimize(osg::Node* node, unsigned int options)
     {
         OSG_INFO<<"Optimizer::optimize() doing FLATTEN_STATIC_TRANSFORMS_DUPLICATING_SHARED_SUBGRAPHS"<<std::endl;
 
-        // no combine any adjacent static transforms.
+        // now combine any adjacent static transforms.
         FlattenStaticTransformsDuplicatingSharedSubgraphsVisitor fstdssv(this);
         node->accept(fstdssv);
 
@@ -515,8 +516,8 @@ void Optimizer::StateVisitor::optimize()
             sitr!=_statesets.end();
             ++sitr)
         {
-            osg::StateSet::AttributeList& attributes = sitr->first->getAttributeList();
-            for(osg::StateSet::AttributeList::iterator aitr= attributes.begin();
+            const osg::StateSet::AttributeList& attributes = sitr->first->getAttributeList();
+            for(osg::StateSet::AttributeList::const_iterator aitr= attributes.begin();
                 aitr!=attributes.end();
                 ++aitr)
             {
@@ -527,11 +528,11 @@ void Optimizer::StateVisitor::optimize()
             }
 
 
-            osg::StateSet::TextureAttributeList& texAttributes = sitr->first->getTextureAttributeList();
+            const osg::StateSet::TextureAttributeList& texAttributes = sitr->first->getTextureAttributeList();
             for(unsigned int unit=0;unit<texAttributes.size();++unit)
             {
-                osg::StateSet::AttributeList& attributes = texAttributes[unit];
-                for(osg::StateSet::AttributeList::iterator aitr= attributes.begin();
+                const osg::StateSet::AttributeList& attributes = texAttributes[unit];
+                for(osg::StateSet::AttributeList::const_iterator aitr= attributes.begin();
                     aitr!=attributes.end();
                     ++aitr)
                 {
@@ -543,8 +544,8 @@ void Optimizer::StateVisitor::optimize()
             }
 
 
-            osg::StateSet::UniformList& uniforms = sitr->first->getUniformList();
-            for(osg::StateSet::UniformList::iterator uitr= uniforms.begin();
+            const osg::StateSet::UniformList& uniforms = sitr->first->getUniformList();
+            for(osg::StateSet::UniformList::const_iterator uitr= uniforms.begin();
                 uitr!=uniforms.end();
                 ++uitr)
             {
@@ -1283,7 +1284,7 @@ bool Optimizer::CombineStaticTransformsVisitor::removeTransforms(osg::Node* node
 {
     if (nodeWeCannotRemove && nodeWeCannotRemove->asTransform()!=0 && nodeWeCannotRemove->asTransform()->asMatrixTransform()!=0)
     {
-        // remove topmost node if it exists in the transform set.
+        // remove topmost node from transform set if it exists there.
         TransformSet::iterator itr = _transformSet.find(nodeWeCannotRemove->asTransform()->asMatrixTransform());
         if (itr!=_transformSet.end()) _transformSet.erase(itr);
     }
@@ -1355,7 +1356,8 @@ void Optimizer::RemoveEmptyNodesVisitor::apply(osg::Group& group)
     {
         // only remove empty groups, but not empty occluders.
         if (group.getNumChildren()==0 && isOperationPermissibleForObject(&group) &&
-            (typeid(group)==typeid(osg::Group) || (dynamic_cast<osg::Transform*>(&group) && !dynamic_cast<osg::CameraView*>(&group))))
+            (typeid(group)==typeid(osg::Group) || (dynamic_cast<osg::Transform*>(&group) && !dynamic_cast<osg::CameraView*>(&group))) &&
+            (group.getNumChildrenRequiringUpdateTraversal()==0 && group.getNumChildrenRequiringEventTraversal()==0) )
         {
             _redundantNodeList.insert(&group);
         }
@@ -1676,6 +1678,11 @@ void Optimizer::CombineLODsVisitor::combineLODs()
 // code to merge geometry object which share, state, and attribute bindings.
 ////////////////////////////////////////////////////////////////////////////
 
+#define COMPARE_BINDING(lhs, rhs) \
+        if (osg::getBinding(lhs)<osg::getBinding(rhs)) return true; \
+        if (osg::getBinding(rhs)<osg::getBinding(lhs)) return false;
+
+
 struct LessGeometry
 {
     bool operator() (const osg::Geometry* lhs,const osg::Geometry* rhs) const
@@ -1683,32 +1690,11 @@ struct LessGeometry
         if (lhs->getStateSet()<rhs->getStateSet()) return true;
         if (rhs->getStateSet()<lhs->getStateSet()) return false;
 
-        if (rhs->getVertexIndices()) { if (!lhs->getVertexIndices()) return true; }
-        else if (lhs->getVertexIndices()) return false;
+        COMPARE_BINDING(lhs->getNormalArray(), rhs->getNormalArray())
+        COMPARE_BINDING(lhs->getColorArray(), rhs->getColorArray())
+        COMPARE_BINDING(lhs->getSecondaryColorArray(), rhs->getSecondaryColorArray())
+        COMPARE_BINDING(lhs->getFogCoordArray(), rhs->getFogCoordArray())
 
-        if (lhs->getNormalBinding()<rhs->getNormalBinding()) return true;
-        if (rhs->getNormalBinding()<lhs->getNormalBinding()) return false;
-
-        if (rhs->getNormalIndices()) { if (!lhs->getNormalIndices()) return true; }
-        else if (lhs->getNormalIndices()) return false;
-
-        if (lhs->getColorBinding()<rhs->getColorBinding()) return true;
-        if (rhs->getColorBinding()<lhs->getColorBinding()) return false;
-
-        if (rhs->getColorIndices()) { if (!lhs->getColorIndices()) return true; }
-        else if (lhs->getColorIndices()) return false;
-
-        if (lhs->getSecondaryColorBinding()<rhs->getSecondaryColorBinding()) return true;
-        if (rhs->getSecondaryColorBinding()<lhs->getSecondaryColorBinding()) return false;
-
-        if (rhs->getSecondaryColorIndices()) { if (!lhs->getSecondaryColorIndices()) return true; }
-        else if (lhs->getSecondaryColorIndices()) return false;
-
-        if (lhs->getFogCoordBinding()<rhs->getFogCoordBinding()) return true;
-        if (rhs->getFogCoordBinding()<lhs->getFogCoordBinding()) return false;
-
-        if (rhs->getFogCoordIndices()) { if (!lhs->getFogCoordIndices()) return true; }
-        else if (lhs->getFogCoordIndices()) return false;
 
         if (lhs->getNumTexCoordArrays()<rhs->getNumTexCoordArrays()) return true;
         if (rhs->getNumTexCoordArrays()<lhs->getNumTexCoordArrays()) return false;
@@ -1723,9 +1709,6 @@ struct LessGeometry
                 if (!lhs->getTexCoordArray(i)) return true;
             }
             else if (lhs->getTexCoordArray(i)) return false;
-
-            if (rhs->getTexCoordIndices(i)) { if (!lhs->getTexCoordIndices(i)) return true; }
-            else if (lhs->getTexCoordIndices(i)) return false;
         }
 
         for(i=0;i<lhs->getNumVertexAttribArrays();++i)
@@ -1735,13 +1718,10 @@ struct LessGeometry
                 if (!lhs->getVertexAttribArray(i)) return true;
             }
             else if (lhs->getVertexAttribArray(i)) return false;
-
-            if (rhs->getVertexAttribIndices(i)) { if (!lhs->getVertexAttribIndices(i)) return true; }
-            else if (lhs->getVertexAttribIndices(i)) return false;
         }
 
 
-        if (lhs->getNormalBinding()==osg::Geometry::BIND_OVERALL)
+        if (osg::getBinding(lhs->getNormalArray())==osg::Array::BIND_OVERALL)
         {
             // assumes that the bindings and arrays are set up correctly, this
             // should be the case after running computeCorrectBindingsAndArraySizes();
@@ -1768,7 +1748,7 @@ struct LessGeometry
             }
         }
 
-        if (lhs->getColorBinding()==osg::Geometry::BIND_OVERALL)
+        if (osg::getBinding(lhs->getColorArray())==osg::Array::BIND_OVERALL)
         {
             const osg::Array* lhs_colorArray = lhs->getColorArray();
             const osg::Array* rhs_colorArray = rhs->getColorArray();
@@ -1827,7 +1807,10 @@ void Optimizer::CheckGeometryVisitor::checkGeode(osg::Geode& geode)
             osg::Geometry* geom = geode.getDrawable(i)->asGeometry();
             if (geom && isOperationPermissibleForObject(geom))
             {
-                geom->computeCorrectBindingsAndArraySizes();
+#ifdef GEOMETRYDEPRECATED
+                geom1829
+                ->computeCorrectBindingsAndArraySizes();
+#endif
             }
         }
     }
@@ -1835,6 +1818,7 @@ void Optimizer::CheckGeometryVisitor::checkGeode(osg::Geode& geode)
 
 void Optimizer::MakeFastGeometryVisitor::checkGeode(osg::Geode& geode)
 {
+    // GeometryDeprecated CAN REMOVED
     if (isOperationPermissibleForObject(&geode))
     {
         for(unsigned int i=0;i<geode.getNumDrawables();++i)
@@ -1842,9 +1826,9 @@ void Optimizer::MakeFastGeometryVisitor::checkGeode(osg::Geode& geode)
             osg::Geometry* geom = geode.getDrawable(i)->asGeometry();
             if (geom && isOperationPermissibleForObject(geom))
             {
-                if (!geom->areFastPathsUsed() && !geom->getInternalOptimizedGeometry())
+                if (geom->checkForDeprecatedData())
                 {
-                    geom->computeInternalOptimizedGeometry();
+                    geom->fixDeprecatedData();
                 }
             }
         }
@@ -2181,10 +2165,10 @@ bool Optimizer::MergeGeometryVisitor::mergeGeode(osg::Geode& geode)
         if (geom)
         {
             if (geom->getNumPrimitiveSets()>0 &&
-                geom->getNormalBinding()!=osg::Geometry::BIND_PER_PRIMITIVE_SET &&
-                geom->getColorBinding()!=osg::Geometry::BIND_PER_PRIMITIVE_SET &&
-                geom->getSecondaryColorBinding()!=osg::Geometry::BIND_PER_PRIMITIVE_SET &&
-                geom->getFogCoordBinding()!=osg::Geometry::BIND_PER_PRIMITIVE_SET)
+                osg::getBinding(geom->getNormalArray())!=osg::Array::BIND_PER_PRIMITIVE_SET &&
+                osg::getBinding(geom->getColorArray())!=osg::Array::BIND_PER_PRIMITIVE_SET &&
+                osg::getBinding(geom->getSecondaryColorArray())!=osg::Array::BIND_PER_PRIMITIVE_SET &&
+                osg::getBinding(geom->getFogCoordArray())!=osg::Array::BIND_PER_PRIMITIVE_SET)
             {
 
 #if 1
@@ -2456,7 +2440,6 @@ bool Optimizer::MergeGeometryVisitor::mergeGeometry(osg::Geometry& lhs,osg::Geom
     MergeArrayVisitor merger;
 
     unsigned int base = 0;
-    unsigned int vbase = lhs.getVertexArray() ? lhs.getVertexArray()->getNumElements() : 0;
     if (lhs.getVertexArray() && rhs.getVertexArray())
     {
 
@@ -2472,24 +2455,8 @@ bool Optimizer::MergeGeometryVisitor::mergeGeometry(osg::Geometry& lhs,osg::Geom
         lhs.setVertexArray(rhs.getVertexArray());
     }
 
-    if (lhs.getVertexIndices() && rhs.getVertexIndices())
-    {
 
-        base = lhs.getVertexIndices()->getNumElements();
-        if (!merger.merge(lhs.getVertexIndices(),rhs.getVertexIndices(),vbase))
-        {
-            OSG_DEBUG << "MergeGeometry: vertex indices not merged. Some data may be lost." <<std::endl;
-        }
-    }
-    else if (rhs.getVertexIndices())
-    {
-        base = 0;
-        lhs.setVertexIndices(rhs.getVertexIndices());
-    }
-
-
-    unsigned int nbase = lhs.getNormalArray() ? lhs.getNormalArray()->getNumElements() : 0;
-    if (lhs.getNormalArray() && rhs.getNormalArray() && lhs.getNormalBinding()!=osg::Geometry::BIND_OVERALL)
+    if (lhs.getNormalArray() && rhs.getNormalArray() && lhs.getNormalArray()->getBinding()!=osg::Array::BIND_OVERALL)
     {
         if (!merger.merge(lhs.getNormalArray(),rhs.getNormalArray()))
         {
@@ -2501,22 +2468,8 @@ bool Optimizer::MergeGeometryVisitor::mergeGeometry(osg::Geometry& lhs,osg::Geom
         lhs.setNormalArray(rhs.getNormalArray());
     }
 
-    if (lhs.getNormalIndices() && rhs.getNormalIndices() && lhs.getNormalBinding()!=osg::Geometry::BIND_OVERALL)
-    {
-        if (!merger.merge(lhs.getNormalIndices(),rhs.getNormalIndices(),nbase))
-        {
-            OSG_DEBUG << "MergeGeometry: Vertex Array not merged. Some data may be lost." <<std::endl;
-        }
-    }
-    else if (rhs.getNormalIndices())
-    {
-        // this assignment makes the assumption that lhs.NormalArray is empty as well and NormalIndices
-        lhs.setNormalIndices(rhs.getNormalIndices());
-    }
 
-
-    unsigned int cbase = lhs.getColorArray() ? lhs.getColorArray()->getNumElements() : 0;
-    if (lhs.getColorArray() && rhs.getColorArray() && lhs.getColorBinding()!=osg::Geometry::BIND_OVERALL)
+    if (lhs.getColorArray() && rhs.getColorArray() && lhs.getColorArray()->getBinding()!=osg::Array::BIND_OVERALL)
     {
         if (!merger.merge(lhs.getColorArray(),rhs.getColorArray()))
         {
@@ -2528,21 +2481,7 @@ bool Optimizer::MergeGeometryVisitor::mergeGeometry(osg::Geometry& lhs,osg::Geom
         lhs.setColorArray(rhs.getColorArray());
     }
 
-    if (lhs.getColorIndices() && rhs.getColorIndices() && lhs.getColorBinding()!=osg::Geometry::BIND_OVERALL)
-    {
-        if (!merger.merge(lhs.getColorIndices(),rhs.getColorIndices(),cbase))
-        {
-            OSG_DEBUG << "MergeGeometry: color indices not merged. Some data may be lost." <<std::endl;
-        }
-    }
-    else if (rhs.getColorIndices())
-    {
-        // this assignment makes the assumption that lhs.ColorArray is empty as well and ColorIndices
-        lhs.setColorIndices(rhs.getColorIndices());
-    }
-
-    unsigned int scbase = lhs.getSecondaryColorArray() ? lhs.getSecondaryColorArray()->getNumElements() : 0;
-    if (lhs.getSecondaryColorArray() && rhs.getSecondaryColorArray() && lhs.getSecondaryColorBinding()!=osg::Geometry::BIND_OVERALL)
+    if (lhs.getSecondaryColorArray() && rhs.getSecondaryColorArray() && lhs.getSecondaryColorArray()->getBinding()!=osg::Array::BIND_OVERALL)
     {
         if (!merger.merge(lhs.getSecondaryColorArray(),rhs.getSecondaryColorArray()))
         {
@@ -2554,21 +2493,7 @@ bool Optimizer::MergeGeometryVisitor::mergeGeometry(osg::Geometry& lhs,osg::Geom
         lhs.setSecondaryColorArray(rhs.getSecondaryColorArray());
     }
 
-    if (lhs.getSecondaryColorIndices() && rhs.getSecondaryColorIndices() && lhs.getSecondaryColorBinding()!=osg::Geometry::BIND_OVERALL)
-    {
-        if (!merger.merge(lhs.getSecondaryColorIndices(),rhs.getSecondaryColorIndices(),scbase))
-        {
-            OSG_DEBUG << "MergeGeometry: secondary color indices not merged. Some data may be lost." <<std::endl;
-        }
-    }
-    else if (rhs.getSecondaryColorIndices())
-    {
-        // this assignment makes the assumption that lhs.SecondaryColorArray is empty as well and SecondaryColorIndices
-        lhs.setSecondaryColorIndices(rhs.getSecondaryColorIndices());
-    }
-
-    unsigned int fcbase = lhs.getFogCoordArray() ? lhs.getFogCoordArray()->getNumElements() : 0;
-    if (lhs.getFogCoordArray() && rhs.getFogCoordArray() && lhs.getFogCoordBinding()!=osg::Geometry::BIND_OVERALL)
+    if (lhs.getFogCoordArray() && rhs.getFogCoordArray() && lhs.getFogCoordArray()->getBinding()!=osg::Array::BIND_OVERALL)
     {
         if (!merger.merge(lhs.getFogCoordArray(),rhs.getFogCoordArray()))
         {
@@ -2580,52 +2505,21 @@ bool Optimizer::MergeGeometryVisitor::mergeGeometry(osg::Geometry& lhs,osg::Geom
         lhs.setFogCoordArray(rhs.getFogCoordArray());
     }
 
-    if (lhs.getFogCoordIndices() && rhs.getFogCoordIndices() && lhs.getFogCoordBinding()!=osg::Geometry::BIND_OVERALL)
-    {
-        if (!merger.merge(lhs.getFogCoordIndices(),rhs.getFogCoordIndices(),fcbase))
-        {
-            OSG_DEBUG << "MergeGeometry: fog coord indices not merged. Some data may be lost." <<std::endl;
-        }
-    }
-    else if (rhs.getFogCoordIndices())
-    {
-        // this assignment makes the assumption that lhs.FogCoordArray is empty as well and FogCoordIndices
-        lhs.setFogCoordIndices(rhs.getFogCoordIndices());
-    }
-
 
     unsigned int unit;
     for(unit=0;unit<lhs.getNumTexCoordArrays();++unit)
     {
-        unsigned int tcbase = lhs.getTexCoordArray(unit) ? lhs.getTexCoordArray(unit)->getNumElements() : 0;
         if (!merger.merge(lhs.getTexCoordArray(unit),rhs.getTexCoordArray(unit)))
         {
             OSG_DEBUG << "MergeGeometry: tex coord array not merged. Some data may be lost." <<std::endl;
-        }
-
-        if (lhs.getTexCoordIndices(unit) && rhs.getTexCoordIndices(unit))
-        {
-            if (!merger.merge(lhs.getTexCoordIndices(unit),rhs.getTexCoordIndices(unit),tcbase))
-            {
-                OSG_DEBUG << "MergeGeometry: tex coord indices not merged. Some data may be lost." <<std::endl;
-            }
         }
     }
 
     for(unit=0;unit<lhs.getNumVertexAttribArrays();++unit)
     {
-        unsigned int vabase = lhs.getVertexAttribArray(unit) ? lhs.getVertexAttribArray(unit)->getNumElements() : 0;
         if (!merger.merge(lhs.getVertexAttribArray(unit),rhs.getVertexAttribArray(unit)))
         {
             OSG_DEBUG << "MergeGeometry: vertex attrib array not merged. Some data may be lost." <<std::endl;
-        }
-
-        if (lhs.getVertexAttribIndices(unit) && rhs.getVertexAttribIndices(unit))
-        {
-            if (!merger.merge(lhs.getVertexAttribIndices(unit),rhs.getVertexAttribIndices(unit),vabase))
-            {
-                OSG_DEBUG << "MergeGeometry: vertex attrib indices not merged. Some data may be lost." <<std::endl;
-            }
         }
     }
 
@@ -4176,7 +4070,7 @@ void Optimizer::TextureAtlasVisitor::reset()
 
 bool Optimizer::TextureAtlasVisitor::pushStateSet(osg::StateSet* stateset)
 {
-    osg::StateSet::TextureAttributeList& tal = stateset->getTextureAttributeList();
+    const osg::StateSet::TextureAttributeList& tal = stateset->getTextureAttributeList();
 
     // if no textures ignore
     if (tal.empty()) return false;
@@ -4314,7 +4208,7 @@ void Optimizer::TextureAtlasVisitor::optimize()
         osg::StateSet* stateset = sitr->first;
         Drawables& drawables = sitr->second;
 
-        osg::StateSet::TextureAttributeList& tal = stateset->getTextureAttributeList();
+        const osg::StateSet::TextureAttributeList& tal = stateset->getTextureAttributeList();
         for(unsigned int unit=0; unit<tal.size(); ++unit)
         {
             osg::Texture2D* texture = dynamic_cast<osg::Texture2D*>(stateset->getTextureAttribute(unit,osg::StateAttribute::TEXTURE));
@@ -4481,7 +4375,7 @@ void Optimizer::TextureAtlasVisitor::optimize()
         ++sitr)
     {
         osg::StateSet* stateset = sitr->first;
-        osg::StateSet::TextureAttributeList& tal = stateset->getTextureAttributeList();
+        const osg::StateSet::TextureAttributeList& tal = stateset->getTextureAttributeList();
         for(unsigned int unit=0; unit<tal.size(); ++unit)
         {
             osg::Texture2D* texture = dynamic_cast<osg::Texture2D*>(stateset->getTextureAttribute(unit,osg::StateAttribute::TEXTURE));
@@ -4630,6 +4524,8 @@ void Optimizer::FlattenStaticTransformsDuplicatingSharedSubgraphsVisitor::apply(
         if(parent_group)
         {
             parent_group->replaceChild(&group, new_group);
+            // also replace the node in the nodepath
+            _nodePath[nodepathsize-1] = new_group;
             // traverse the new Group
             traverse(*(new_group));
         }
@@ -4671,6 +4567,8 @@ void Optimizer::FlattenStaticTransformsDuplicatingSharedSubgraphsVisitor::apply(
         if(parent_group)
         {
             parent_group->replaceChild(&transform, group.get());
+            // also replace the node in the nodepath
+            _nodePath[nodepathsize-1] = group.get();
             // traverse the new Group
             traverse(*(group.get()));
         }
@@ -4705,7 +4603,8 @@ void Optimizer::FlattenStaticTransformsDuplicatingSharedSubgraphsVisitor::apply(
         if(parent_group)
         {
             parent_group->replaceChild(&lod, new_lod.get());
-
+            // also replace the node in the nodepath
+            _nodePath[nodepathsize-1] = new_lod.get();
             // move center point
             if(!_matrixStack.empty())
                 new_lod->setCenter(new_lod->getCenter() * _matrixStack.back());

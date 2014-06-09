@@ -41,15 +41,15 @@ void LinkVisitor::link(AnimationUpdateCallbackBase* cb)
         result += cb->link(_animations[i].get());
         _nbLinkedTarget += result;
     }
-    OSG_NOTICE << "LinkVisitor links " << result << " for \"" << cb->getName() << '"' << std::endl;
+    OSG_DEBUG << "LinkVisitor links " << result << " for \"" << cb->getName() << '"' << std::endl;
 }
 
 void LinkVisitor::handle_stateset(osg::StateSet* stateset)
 {
     if (!stateset)
         return;
-    osg::StateSet::AttributeList& attr = stateset->getAttributeList();
-    for (osg::StateSet::AttributeList::iterator it = attr.begin(); it != attr.end(); ++it)
+    const osg::StateSet::AttributeList& attr = stateset->getAttributeList();
+    for (osg::StateSet::AttributeList::const_iterator it = attr.begin(); it != attr.end(); ++it)
     {
         osg::StateAttribute* sattr = it->second.first.get();
         osgAnimation::AnimationUpdateCallbackBase* cb = dynamic_cast<osgAnimation::AnimationUpdateCallbackBase*>(sattr->getUpdateCallback());

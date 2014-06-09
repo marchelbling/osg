@@ -379,7 +379,7 @@ ReaderWriterCURL::ReaderWriterCURL()
     supportsProtocol("ftp","Read from ftp port using libcurl.");
     supportsProtocol("ftps","Read from ftps port using libcurl.");
     
-    supportsExtension("curl","Psuedo file extension, used to select curl plugin.");
+    supportsExtension("curl","Pseudo file extension, used to select curl plugin.");
     supportsExtension("*","Passes all read files to other plugins to handle actual model loading.");
     supportsOption("OSG_CURL_PROXY","Specify the http proxy.");
     supportsOption("OSG_CURL_PROXYPORT","Specify the http proxy port.");
@@ -723,7 +723,7 @@ bool ReaderWriterCURL::fileExists(const std::string& filename, const osgDB::Opti
         curl_easy_setopt(curl_handle, CURLOPT_NOBODY, 1);
         curl_easy_setopt(curl_handle, CURLOPT_HEADER, 1);
         curl_easy_setopt(curl_handle, CURLOPT_FILETIME, 1);
-        curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, (void*)&empty_write_data);
+        curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, &empty_write_data);
 
         int result = curl_easy_perform(curl_handle);
         

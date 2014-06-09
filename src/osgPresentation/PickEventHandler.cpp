@@ -66,7 +66,7 @@ bool PickEventHandler::handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionA
             }
             osgViewer::Viewer* viewer = dynamic_cast<osgViewer::Viewer*>(&aa);
             osgUtil::LineSegmentIntersector::Intersections intersections;
-            if (viewer->computeIntersections(ea.getX(),ea.getY(), nv->getNodePath(), intersections))
+            if (viewer->computeIntersections(ea, nv->getNodePath(), intersections))
             {
                 for(osgUtil::LineSegmentIntersector::Intersections::iterator hitr=intersections.begin();
                     hitr!=intersections.end();
@@ -102,7 +102,7 @@ bool PickEventHandler::handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionA
                     {
                         if (ea.getEventType()==osgGA::GUIEventAdapter::PUSH)
                         {
-                            _drawablesOnPush.insert( hitr->drawable );
+                            _drawablesOnPush.insert( hitr->drawable.get() );
                         }
                         else if (ea.getEventType()==osgGA::GUIEventAdapter::MOVE)
                         {
@@ -110,7 +110,7 @@ bool PickEventHandler::handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionA
                         }
                         else if (ea.getEventType()==osgGA::GUIEventAdapter::RELEASE)
                         {
-                            if (_drawablesOnPush.find(hitr->drawable) != _drawablesOnPush.end())
+                            if (_drawablesOnPush.find(hitr->drawable.get()) != _drawablesOnPush.end())
                                 doOperation();
                             return true;
                         }

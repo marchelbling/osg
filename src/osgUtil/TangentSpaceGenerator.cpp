@@ -11,6 +11,9 @@ TangentSpaceGenerator::TangentSpaceGenerator()
     B_(new osg::Vec4Array),
     N_(new osg::Vec4Array)
 {
+    T_->setBinding(osg::Array::BIND_PER_VERTEX); T_->setNormalize(false);
+    B_->setBinding(osg::Array::BIND_PER_VERTEX); T_->setNormalize(false);
+    N_->setBinding(osg::Array::BIND_PER_VERTEX); T_->setNormalize(false);
 }
 
 TangentSpaceGenerator::TangentSpaceGenerator(const TangentSpaceGenerator &copy, const osg::CopyOp &copyop)
@@ -23,14 +26,6 @@ TangentSpaceGenerator::TangentSpaceGenerator(const TangentSpaceGenerator &copy, 
 
 void TangentSpaceGenerator::generate(osg::Geometry *geo, int normal_map_tex_unit)
 {
-    // check to see if vertex attributes indices exists, if so expand them to remove them
-    if (geo->suitableForOptimization())
-    {
-        // removing coord indices so we don't have to deal with them in the binormal code.
-        OSG_INFO<<"TangentSpaceGenerator::generate(Geometry*,int): Removing attribute indices"<<std::endl;
-        geo->copyToAndOptimize(*geo);
-    }
-
     const osg::Array *vx = geo->getVertexArray();
     const osg::Array *nx = geo->getNormalArray();
     const osg::Array *tx = geo->getTexCoordArray(normal_map_tex_unit);
@@ -39,21 +34,9 @@ void TangentSpaceGenerator::generate(osg::Geometry *geo, int normal_map_tex_unit
 
 
     unsigned int vertex_count = vx->getNumElements();
-    if (geo->getVertexIndices() == NULL) {
-        T_->assign(vertex_count, osg::Vec4());
-        B_->assign(vertex_count, osg::Vec4());
-        N_->assign(vertex_count, osg::Vec4());
-    } else {
-        unsigned int index_count = geo->getVertexIndices()->getNumElements();
-        T_->assign(index_count, osg::Vec4());
-        B_->assign(index_count, osg::Vec4());
-        N_->assign(index_count, osg::Vec4());
-        indices_ = new osg::UIntArray();
-        unsigned int i;
-        for (i=0;i<index_count;i++) {
-            indices_->push_back(i);
-        }
-    }
+    T_->assign(vertex_count, osg::Vec4());
+    B_->assign(vertex_count, osg::Vec4());
+    N_->assign(vertex_count, osg::Vec4());
 
     unsigned int i; // VC6 doesn't like for-scoped variables
 
@@ -103,6 +86,32 @@ void TangentSpaceGenerator::generate(osg::Geometry *geo, int normal_map_tex_unit
                 }
                 break;
 
+            case osg::PrimitiveSet::QUAD_STRIP:
+                if (pset->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) {
+                    osg::DrawArrayLengths *dal = static_cast<osg::DrawArrayLengths *>(pset);
+                    unsigned int j = 0;
+                    for (osg::DrawArrayLengths::const_iterator pi=dal->begin(); pi!=dal->end(); ++pi) {
+                        unsigned int iN = static_cast<unsigned int>(*pi-2);
+                        for (i=0; i<iN; ++i, ++j) {
+                            if ((i%2) == 0) {
+                                compute(pset, vx, nx, tx, j, j+2, j+1);
+                            } else {
+                                compute(pset, vx, nx, tx, j, j+1, j+2);
+                            }
+                        }
+                        j += 2;
+                    }
+                } else {
+                    for (i=0; i<N-2; ++i) {
+                        if ((i%2) == 0) {
+                            compute(pset, vx, nx, tx, i, i+2, i+1);
+                        } else {
+                            compute(pset, vx, nx, tx, i, i+1, i+2);
+                        }
+                    }
+                }
+                break;
+
             case osg::PrimitiveSet::TRIANGLE_FAN:
             case osg::PrimitiveSet::POLYGON:
                 if (pset->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) {
@@ -137,25 +146,25 @@ void TangentSpaceGenerator::generate(osg::Geometry *geo, int normal_map_tex_unit
     // normalize basis vectors and force the normal vector to match
     // the triangle normal's direction
     unsigned int attrib_count = vx->getNumElements();
-    if (geo->getVertexIndices() != NULL) {
-        attrib_count = geo->getVertexIndices()->getNumElements();
-    }
     for (i=0; i<attrib_count; ++i) {
         osg::Vec4 &vT = (*T_)[i];
         osg::Vec4 &vB = (*B_)[i];
         osg::Vec4 &vN = (*N_)[i];
 
         osg::Vec3 txN = osg::Vec3(vT.x(), vT.y(), vT.z()) ^ osg::Vec3(vB.x(), vB.y(), vB.z());
+        bool flipped = txN * osg::Vec3(vN.x(), vN.y(), vN.z()) < 0;
 
-        if (txN * osg::Vec3(vN.x(), vN.y(), vN.z()) >= 0) {
-            vN = osg::Vec4(txN, 0);
-        } else {
+        if (flipped) {
             vN = osg::Vec4(-txN, 0);
+        } else {
+            vN = osg::Vec4(txN, 0);
         }
 
         vT.normalize();
         vB.normalize();
         vN.normalize();
+
+        vT[3] = flipped ? -1.0f : 1.0f;
     }
     /* TO-DO: if indexed, compress the attributes to have only one
      * version of each (different indices for each one?) */

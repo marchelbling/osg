@@ -16,10 +16,10 @@
 #include <osgDB/Registry>
 #include <osgText/Font>
 
-#include <QtGui/QFont>
-#include <QtGui/QFontMetrics>
-#include <QtGui/QImage>
-#include <QtGui/QPainter>
+#include <QFont>
+#include <QFontMetrics>
+#include <QImage>
+#include <QPainter>
 
 namespace osgQt {
 
@@ -122,7 +122,7 @@ QFontImplementation::getGlyph(const osgText::FontResolution& fontRes, unsigned i
 }
 
 osg::Vec2
-QFontImplementation::getKerning(unsigned int leftcharcode, unsigned int rightcharcode, osgText::KerningType kerningType)
+QFontImplementation::getKerning(unsigned int /*leftcharcode*/, unsigned int /*rightcharcode*/, osgText::KerningType /*kerningType*/)
 {
     return osg::Vec2(0, 0);
 }

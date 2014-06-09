@@ -908,10 +908,11 @@ static void halveImage_uint(GLint components, GLuint width, GLuint height,
         for (j = 0; j < newwidth; j++) {
             for (k = 0; k < components; k++) {
                 /* need to cast to double to hold large unsigned ints */
-                s[0] = ((double)*(const GLuint*)t +
-                        (double)*(const GLuint*)(t+group_size) +
-                        (double)*(const GLuint*)(t+ysize) +
-                        (double)*(const GLuint*)(t+ysize+group_size))/4 + 0.5;
+                GLdouble buf = (double)*(const GLuint*)t +
+                               (double)*(const GLuint*)(t+group_size) +
+                               (double)*(const GLuint*)(t+ysize) +
+                               (double)*(const GLuint*)(t+ysize+group_size);
+                s[0] = (GLuint)(buf/4.0 + 0.5);
                 s++; t += element_size;
 
             }
@@ -925,12 +926,11 @@ static void halveImage_uint(GLint components, GLuint width, GLuint height,
         for (j = 0; j < newwidth; j++) {
             for (k = 0; k < components; k++) {
                 /* need to cast to double to hold large unsigned ints */
-                GLdouble buf;
-                buf = (GLdouble)__GLU_SWAP_4_BYTES(t) +
-                      (GLdouble)__GLU_SWAP_4_BYTES(t+group_size) +
-                      (GLdouble)__GLU_SWAP_4_BYTES(t+ysize) +
-                      (GLdouble)__GLU_SWAP_4_BYTES(t+ysize+group_size);
-                s[0] = (GLuint)(buf/4 + 0.5);
+                GLdouble buf = (GLdouble)__GLU_SWAP_4_BYTES(t) +
+                               (GLdouble)__GLU_SWAP_4_BYTES(t+group_size) +
+                               (GLdouble)__GLU_SWAP_4_BYTES(t+ysize) +
+                               (GLdouble)__GLU_SWAP_4_BYTES(t+ysize+group_size);
+                s[0] = (GLuint)(buf/4.0 + 0.5);
 
                 s++; t += element_size;
             }
@@ -3293,7 +3293,7 @@ static void scale_internal_float(GLint components, GLint widthin,
     }
 }
 
-static int checkMipmapArgs(GLenum internalFormat, GLenum format, GLenum type)
+static int checkMipmapArgs(GLenum /*internalFormat*/, GLenum format, GLenum type)
 {
     if (!legalFormat(format) || !legalType(type)) {
         return GLU_INVALID_ENUM;
@@ -3344,7 +3344,7 @@ static GLboolean legalType(GLenum type)
       case GL_UNSIGNED_INT:
       case GL_FLOAT:
       case GL_UNSIGNED_BYTE_3_3_2:
-      case GL_UNSIGNED_BYTE_2_3_3_REV:  
+      case GL_UNSIGNED_BYTE_2_3_3_REV:
       case GL_UNSIGNED_SHORT_5_6_5:
       case GL_UNSIGNED_SHORT_5_6_5_REV:
       case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -3442,7 +3442,7 @@ static void closestFit(GLenum target, GLint width, GLint height,
    if ( (strtod((const char *)glGetString(GL_VERSION),NULL) >= 1.1)
         ) {
       GLint widthPowerOf2= nearestPower(width);
-      GLint heightPowerOf2= nearestPower(height);       
+      GLint heightPowerOf2= nearestPower(height);
       GLint proxyWidth;
 
       do {
@@ -4613,7 +4613,7 @@ static int gluBuild2DMipmapLevelsCore(GLenum target, GLint internalFormat,
       }
     } /* for level */
     glPixelStorei(GL_UNPACK_ALIGNMENT, psm.unpack_alignment);
-    
+
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
     glPixelStorei(GL_UNPACK_SKIP_ROWS, psm.unpack_skip_rows);
     glPixelStorei(GL_UNPACK_SKIP_PIXELS, psm.unpack_skip_pixels);
@@ -4905,7 +4905,7 @@ static GLfloat bytes_per_element(GLenum type)
       case GL_FLOAT:
         return(sizeof(GLfloat));
       case GL_UNSIGNED_BYTE_3_3_2:
-      case GL_UNSIGNED_BYTE_2_3_3_REV:  
+      case GL_UNSIGNED_BYTE_2_3_3_REV:
         return(sizeof(GLubyte));
       case GL_UNSIGNED_SHORT_5_6_5:
       case GL_UNSIGNED_SHORT_5_6_5_REV:
@@ -6220,7 +6220,7 @@ static void scaleInternalPackedPixel(int components,
 #endif
 
                 /* calculate the value for pixels in the last row */
-        
+
                 y_percent = highy_float;
                 percent = y_percent * (1-lowx_float);
                 temp = (const char *)dataIn + xindex + highy_int * rowSizeInBytes;
@@ -7427,13 +7427,13 @@ int gluScaleImage3D(GLenum format,
 
 
 static void closestFit3D(GLTexImage3DProc gluTexImage3D,
-                         GLenum target, GLint width, GLint height, GLint depth,
+                         GLint width, GLint height, GLint depth,
                          GLint internalFormat, GLenum format, GLenum type,
                          GLint *newWidth, GLint *newHeight, GLint *newDepth)
 {
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
    GLint widthPowerOf2= nearestPower(width);
-   GLint heightPowerOf2= nearestPower(height);        
+   GLint heightPowerOf2= nearestPower(height);
    GLint depthPowerOf2= nearestPower(depth);
    GLint proxyWidth;
 
@@ -7454,7 +7454,6 @@ static void closestFit3D(GLTexImage3DProc gluTexImage3D,
       assert(depthAtLevelOne > 0);
 
       /* does width x height x depth at level 1 & all their mipmaps fit? */
-      assert(target == GL_TEXTURE_3D || target == GL_PROXY_TEXTURE_3D);
       gluTexImage3D(proxyTarget, 1, /* must be non-zero */
                     internalFormat,
                     widthAtLevelOne,heightAtLevelOne,depthAtLevelOne,
@@ -7534,7 +7533,7 @@ static void halveImagePackedPixelSlice(int components,
             }
             totals[cc]/= (float)BOX2;
          } /* for cc */
-        
+
          (*shovePackedPixel)(totals,outIndex,dataOut);
          outIndex++;
          /* skip over to next group of 2 */
@@ -8280,7 +8279,7 @@ static int gluBuild3DMipmapLevelsCore(GLTexImage3DProc gluTexImage3D,
          }
        }
        /* level userLevel is in srcImage; nothing saved yet */
-       level = userLevel;       
+       level = userLevel;
    }
 
 #if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
@@ -8543,7 +8542,7 @@ GLint GLAPIENTRY gluBuild3DMipmaps(GLTexImage3DProc gluTexImage3D,
       return GLU_INVALID_ENUM;
    }
 
-   closestFit3D(gluTexImage3D, target,width,height,depth,internalFormat,format,type,
+   closestFit3D(gluTexImage3D, width,height,depth,internalFormat,format,type,
                 &widthPowerOf2,&heightPowerOf2,&depthPowerOf2);
 
    levels = computeLog(widthPowerOf2);

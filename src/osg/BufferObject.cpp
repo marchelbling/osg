@@ -38,6 +38,15 @@ using namespace osg;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+// GLBufferObject::BufferEntry
+//
+unsigned int GLBufferObject::BufferEntry::getNumClients() const
+{
+    return dataSource->getNumClients();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 // GLBufferObject
 //
 GLBufferObject::GLBufferObject(unsigned int contextID, BufferObject* bufferObject, unsigned int glObjectID):
@@ -129,9 +138,9 @@ void GLBufferObject::compileBuffer()
 
                 // OSG_NOTICE<<"GLBufferObject::compileBuffer(..) updating BufferEntry"<<std::endl;
 
-
-                entry.offset = newTotalSize;
+                entry.numRead = 0;
                 entry.modifiedCount = 0xffffff;
+                entry.offset = newTotalSize;
                 entry.dataSize = bd->getTotalDataSize();
                 entry.dataSource = bd;
 
@@ -203,6 +212,7 @@ void GLBufferObject::compileBuffer()
         if (entry.dataSource && (compileAll || entry.modifiedCount != entry.dataSource->getModifiedCount()))
         {
             // OSG_NOTICE<<"GLBufferObject::compileBuffer(..) downloading BufferEntry "<<&entry<<std::endl;
+            entry.numRead = 0;
             entry.modifiedCount = entry.dataSource->getModifiedCount();
 
             const osg::Image* image = entry.dataSource->asImage();
@@ -220,7 +230,6 @@ void GLBufferObject::compileBuffer()
             {
                 _extensions->glBufferSubData(_profile._target, (GLintptrARB)entry.offset, (GLsizeiptrARB)entry.dataSize, entry.dataSource->getDataPointer());
             }
-
         }
     }
 }
@@ -236,6 +245,23 @@ void GLBufferObject::deleteGLObject()
         _allocatedSize = 0;
         _bufferEntries.clear();
     }
+}
+
+bool GLBufferObject::hasAllBufferDataBeenRead() const
+{
+    for (BufferEntries::const_iterator it=_bufferEntries.begin(); it!=_bufferEntries.end(); ++it)
+    {
+        if (it->numRead < it->getNumClients())
+            return false;
+    }
+
+    return true;
+}
+
+void GLBufferObject::setBufferDataHasBeenRead(const osg::BufferData* bd)
+{
+    BufferEntry &entry = _bufferEntries[bd->getBufferIndex()];
+    ++entry.numRead;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -278,6 +304,7 @@ GLBufferObject::Extensions::Extensions(const Extensions& rhs):
     _glGetBufferPointerv = rhs._glGetBufferPointerv;
     _glBindBufferRange = rhs._glBindBufferRange;
     _glBindBufferBase = rhs._glBindBufferBase;
+    _glTexBuffer = rhs._glTexBuffer;
 
 }
 
@@ -297,9 +324,11 @@ void GLBufferObject::Extensions::lowestCommonDenominator(const Extensions& rhs)
     if (!rhs._glGetBufferParameteriv) _glGetBufferPointerv = rhs._glGetBufferPointerv;
     if (!rhs._glBindBufferRange) _glBindBufferRange = rhs._glBindBufferRange;
     if (!rhs._glBindBufferBase) _glBindBufferBase = rhs._glBindBufferBase;
+    if (!rhs._glTexBuffer) _glTexBuffer = rhs._glTexBuffer;
 
     _isPBOSupported = rhs._isPBOSupported;
     _isUniformBufferObjectSupported = rhs._isUniformBufferObjectSupported;
+    _isTBOSupported = rhs._isTBOSupported;
 }
 
 void GLBufferObject::Extensions::setupGLExtensions(unsigned int contextID)
@@ -317,9 +346,11 @@ void GLBufferObject::Extensions::setupGLExtensions(unsigned int contextID)
     setGLExtensionFuncPtr(_glGetBufferPointerv, "glGetBufferPointerv","glGetBufferPointervARB");
     setGLExtensionFuncPtr(_glBindBufferRange, "glBindBufferRange");
     setGLExtensionFuncPtr(_glBindBufferBase, "glBindBufferBase");
+    setGLExtensionFuncPtr(_glTexBuffer, "glTexBuffer","glTexBufferARB" );
 
     _isPBOSupported = OSG_GL3_FEATURES || osg::isGLExtensionSupported(contextID,"GL_ARB_pixel_buffer_object");
     _isUniformBufferObjectSupported = osg::isGLExtensionSupported(contextID, "GL_ARB_uniform_buffer_object");
+    _isTBOSupported = osg::isGLExtensionSupported(contextID,"GL_ARB_texture_buffer_object");
 }
 
 void GLBufferObject::Extensions::glGenBuffers(GLsizei n, GLuint *buffers) const
@@ -411,6 +442,13 @@ void GLBufferObject::Extensions::glBindBufferBase (GLenum target, GLuint index, 
     if (_glBindBufferBase) _glBindBufferBase(target, index, buffer);
     else OSG_WARN<<"Error: glBindBufferBase not supported by OpenGL driver\n";
 }
+
+void GLBufferObject::Extensions::glTexBuffer( GLenum target, GLenum internalFormat, GLuint buffer ) const
+{
+    if ( _glTexBuffer ) _glTexBuffer( target, internalFormat, buffer );
+    else OSG_WARN<<"Error: glTexBuffer not supported by OpenGL driver\n";
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // GLBufferObjectSet
@@ -649,7 +687,7 @@ void GLBufferObjectSet::discardAllDeletedGLBufferObjects()
     _orphanedGLBufferObjects.clear();
 }
 
-void GLBufferObjectSet::flushDeletedGLBufferObjects(double currentTime, double& availableTime)
+void GLBufferObjectSet::flushDeletedGLBufferObjects(double /*currentTime*/, double& availableTime)
 {
     {
         OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);

@@ -79,10 +79,10 @@ ConvertFromPerformer::ConvertFromPerformer()
 {
     _osgRoot = NULL;
 
-    _gsetBindMap[PFGS_OFF] = osg::Geometry::BIND_OFF;
-    _gsetBindMap[PFGS_OVERALL] = osg::Geometry::BIND_OVERALL;
-    _gsetBindMap[PFGS_PER_PRIM] = osg::Geometry::BIND_PER_PRIMITIVE;
-    _gsetBindMap[PFGS_PER_VERTEX] = osg::Geometry::BIND_PER_VERTEX;
+    _gsetBindMap[PFGS_OFF] = deprecated_osg::Geometry::BIND_OFF;
+    _gsetBindMap[PFGS_OVERALL] = deprecated_osg::Geometry::BIND_OVERALL;
+    _gsetBindMap[PFGS_PER_PRIM] = deprecated_osg::Geometry::BIND_PER_PRIMITIVE;
+    _gsetBindMap[PFGS_PER_VERTEX] = deprecated_osg::Geometry::BIND_PER_VERTEX;
 
     _saveImagesAsRGB = false;
     _saveAbsoluteImagePath = false;
@@ -541,9 +541,9 @@ osg::Drawable* ConvertFromPerformer::visitGeoSet(osg::Geode* osgGeode,pfGeoSet* 
     }
 
     // we'll make it easy to convert by using the Performer style osg::GeoSet,
-    // and then convert back to a osg::Geometry afterwards.
+    // and then convert back to a deprecated_osg::Geometry afterwards.
     //osg::ref_ptr<osg::GeoSet> geom = new osg::GeoSet;
-    osg::Geometry* geom = new osg::Geometry;
+    deprecated_osg::Geometry* geom = new deprecated_osg::Geometry;
 
     int i;
 
@@ -715,8 +715,6 @@ osg::Drawable* ConvertFromPerformer::visitGeoSet(osg::Geode* osgGeode,pfGeoSet* 
             // handle flat shaded skip of normals.
             int nn = nv-flat_shaded_skip_all_primitives;
 
-            // set the normal binding type.
-            geom->setNormalBinding(_gsetBindMap[bind]);
 
             if (ilist)
             {
@@ -735,6 +733,9 @@ osg::Drawable* ConvertFromPerformer::visitGeoSet(osg::Geode* osgGeode,pfGeoSet* 
                     (*osg_norms)[i][2] = norms[i][2];
                 }
                 geom->setNormalArray(osg_norms);
+
+                // set the normal binding type.
+                geom->setNormalBinding(_gsetBindMap[bind]);
 
                 osg::UShortArray* osg_indices = new osg::UShortArray;
                 osg_indices->reserve(nv);
@@ -791,9 +792,6 @@ osg::Drawable* ConvertFromPerformer::visitGeoSet(osg::Geode* osgGeode,pfGeoSet* 
                      bind == PFGS_PER_PRIM ? geoset->getNumPrims() :
                      bind == PFGS_PER_VERTEX ? nv : 0;
 
-            // set the normal binding type.
-            geom->setNormalBinding(_gsetBindMap[bind]);
-
             // calc the maximum num of vertex from the index list.
             int cc;
             if (ilist)
@@ -814,6 +812,9 @@ osg::Drawable* ConvertFromPerformer::visitGeoSet(osg::Geode* osgGeode,pfGeoSet* 
                 (*osg_norms)[i][2] = norms[i][2];
             }
             geom->setNormalArray(osg_norms);
+
+            // set the normal binding type.
+            geom->setNormalBinding(_gsetBindMap[bind]);
 
             if(ilist)
             {
@@ -836,9 +837,6 @@ osg::Drawable* ConvertFromPerformer::visitGeoSet(osg::Geode* osgGeode,pfGeoSet* 
             // handle flat shaded skip of normals.
             int nn = nv-flat_shaded_skip_all_primitives;
 
-            // set the normal binding type.
-            geom->setColorBinding(_gsetBindMap[bind]);
-
             if (ilist)
             {
                 // calc the maximum num of vertex from the index list.
@@ -857,6 +855,10 @@ osg::Drawable* ConvertFromPerformer::visitGeoSet(osg::Geode* osgGeode,pfGeoSet* 
                     (*osg_colors)[i][3] = colors[i][3];
                 }
                 geom->setColorArray(osg_colors);
+
+                // set the color binding type.
+                geom->setColorBinding(_gsetBindMap[bind]);
+
 
                 osg::UShortArray* osg_indices = new osg::UShortArray;
                 osg_indices->reserve(nv);
@@ -903,6 +905,9 @@ osg::Drawable* ConvertFromPerformer::visitGeoSet(osg::Geode* osgGeode,pfGeoSet* 
                 }
 
                 geom->setColorArray(osg_colors);
+
+                // set the color binding type.
+                geom->setColorBinding(_gsetBindMap[bind]);
             }
         }
         else
@@ -911,9 +916,6 @@ osg::Drawable* ConvertFromPerformer::visitGeoSet(osg::Geode* osgGeode,pfGeoSet* 
                      bind == PFGS_OVERALL ? 1 :
                      bind == PFGS_PER_PRIM ? geoset->getNumPrims() :
                      bind == PFGS_PER_VERTEX ? nv : 0;
-
-            // set the normal binding type.
-            geom->setColorBinding(_gsetBindMap[bind]);
 
             // calc the maximum num of vertex from the index list.
             int cc;
@@ -937,6 +939,10 @@ osg::Drawable* ConvertFromPerformer::visitGeoSet(osg::Geode* osgGeode,pfGeoSet* 
             }
 
             geom->setColorArray(osg_colors);
+
+            // set the color binding type.
+            geom->setColorBinding(_gsetBindMap[bind]);
+
 
             if(ilist)
             {

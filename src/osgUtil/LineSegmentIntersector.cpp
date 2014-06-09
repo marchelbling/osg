@@ -20,6 +20,7 @@
 #include <osg/TriangleFunctor>
 #include <osg/KdTree>
 #include <osg/Timer>
+#include <osg/TexMat>
 
 using namespace osgUtil;
 
@@ -483,20 +484,11 @@ bool LineSegmentIntersector::intersectAndClip(osg::Vec3d& s, osg::Vec3d& e,const
     osg::Vec3d bb_min(bbInput._min);
     osg::Vec3d bb_max(bbInput._max);
 
-#if 1
-    double epsilon = 1e-4;
-    bb_min.x() -= epsilon;
-    bb_min.y() -= epsilon;
-    bb_min.z() -= epsilon;
-    bb_max.x() += epsilon;
-    bb_max.y() += epsilon;
-    bb_max.z() += epsilon;
-#endif
+    double epsilon = 1e-6;
 
     // compate s and e against the xMin to xMax range of bb.
     if (s.x()<=e.x())
     {
-
         // trivial reject of segment wholely outside.
         if (e.x()<bb_min.x()) return false;
         if (s.x()>bb_max.x()) return false;
@@ -504,13 +496,15 @@ bool LineSegmentIntersector::intersectAndClip(osg::Vec3d& s, osg::Vec3d& e,const
         if (s.x()<bb_min.x())
         {
             // clip s to xMin.
-            s = s+(e-s)*(bb_min.x()-s.x())/(e.x()-s.x());
+            double r = (bb_min.x()-s.x())/(e.x()-s.x()) - epsilon;
+            if (r>0.0) s = s + (e-s)*r;
         }
 
         if (e.x()>bb_max.x())
         {
             // clip e to xMax.
-            e = s+(e-s)*(bb_max.x()-s.x())/(e.x()-s.x());
+            double r = (bb_max.x()-s.x())/(e.x()-s.x()) + epsilon;
+            if (r<1.0) e = s+(e-s)*r;
         }
     }
     else
@@ -520,21 +514,22 @@ bool LineSegmentIntersector::intersectAndClip(osg::Vec3d& s, osg::Vec3d& e,const
 
         if (e.x()<bb_min.x())
         {
-            // clip s to xMin.
-            e = s+(e-s)*(bb_min.x()-s.x())/(e.x()-s.x());
+            // clip e to xMin.
+            double r = (bb_min.x()-e.x())/(s.x()-e.x()) - epsilon;
+            if (r>0.0) e = e + (s-e)*r;
         }
 
         if (s.x()>bb_max.x())
         {
-            // clip e to xMax.
-            s = s+(e-s)*(bb_max.x()-s.x())/(e.x()-s.x());
+            // clip s to xMax.
+            double r = (bb_max.x()-e.x())/(s.x()-e.x()) + epsilon;
+            if (r<1.0) s = e + (s-e)*r;
         }
     }
 
     // compate s and e against the yMin to yMax range of bb.
     if (s.y()<=e.y())
     {
-
         // trivial reject of segment wholely outside.
         if (e.y()<bb_min.y()) return false;
         if (s.y()>bb_max.y()) return false;
@@ -542,13 +537,15 @@ bool LineSegmentIntersector::intersectAndClip(osg::Vec3d& s, osg::Vec3d& e,const
         if (s.y()<bb_min.y())
         {
             // clip s to yMin.
-            s = s+(e-s)*(bb_min.y()-s.y())/(e.y()-s.y());
+            double r = (bb_min.y()-s.y())/(e.y()-s.y()) - epsilon;
+            if (r>0.0) s = s + (e-s)*r;
         }
 
         if (e.y()>bb_max.y())
         {
             // clip e to yMax.
-            e = s+(e-s)*(bb_max.y()-s.y())/(e.y()-s.y());
+            double r = (bb_max.y()-s.y())/(e.y()-s.y()) + epsilon;
+            if (r<1.0) e = s+(e-s)*r;
         }
     }
     else
@@ -558,21 +555,22 @@ bool LineSegmentIntersector::intersectAndClip(osg::Vec3d& s, osg::Vec3d& e,const
 
         if (e.y()<bb_min.y())
         {
-            // clip s to yMin.
-            e = s+(e-s)*(bb_min.y()-s.y())/(e.y()-s.y());
+            // clip e to yMin.
+            double r = (bb_min.y()-e.y())/(s.y()-e.y()) - epsilon;
+            if (r>0.0) e = e + (s-e)*r;
         }
 
         if (s.y()>bb_max.y())
         {
-            // clip e to yMax.
-            s = s+(e-s)*(bb_max.y()-s.y())/(e.y()-s.y());
+            // clip s to yMax.
+            double r = (bb_max.y()-e.y())/(s.y()-e.y()) + epsilon;
+            if (r<1.0) s = e + (s-e)*r;
         }
     }
 
     // compate s and e against the zMin to zMax range of bb.
     if (s.z()<=e.z())
     {
-
         // trivial reject of segment wholely outside.
         if (e.z()<bb_min.z()) return false;
         if (s.z()>bb_max.z()) return false;
@@ -580,13 +578,15 @@ bool LineSegmentIntersector::intersectAndClip(osg::Vec3d& s, osg::Vec3d& e,const
         if (s.z()<bb_min.z())
         {
             // clip s to zMin.
-            s = s+(e-s)*(bb_min.z()-s.z())/(e.z()-s.z());
+            double r = (bb_min.z()-s.z())/(e.z()-s.z()) - epsilon;
+            if (r>0.0) s = s + (e-s)*r;
         }
 
         if (e.z()>bb_max.z())
         {
             // clip e to zMax.
-            e = s+(e-s)*(bb_max.z()-s.z())/(e.z()-s.z());
+            double r = (bb_max.z()-s.z())/(e.z()-s.z()) + epsilon;
+            if (r<1.0) e = s+(e-s)*r;
         }
     }
     else
@@ -596,14 +596,16 @@ bool LineSegmentIntersector::intersectAndClip(osg::Vec3d& s, osg::Vec3d& e,const
 
         if (e.z()<bb_min.z())
         {
-            // clip s to zMin.
-            e = s+(e-s)*(bb_min.z()-s.z())/(e.z()-s.z());
+            // clip e to zMin.
+            double r = (bb_min.z()-e.z())/(s.z()-e.z()) - epsilon;
+            if (r>0.0) e = e + (s-e)*r;
         }
 
         if (s.z()>bb_max.z())
         {
-            // clip e to zMax.
-            s = s+(e-s)*(bb_max.z()-s.z())/(e.z()-s.z());
+            // clip s to zMax.
+            double r = (bb_max.z()-e.z())/(s.z()-e.z()) + epsilon;
+            if (r<1.0) s = e + (s-e)*r;
         }
     }
 
@@ -612,4 +614,112 @@ bool LineSegmentIntersector::intersectAndClip(osg::Vec3d& s, osg::Vec3d& e,const
     // if (s==e) return false;
 
     return true;
+}
+
+osg::Texture* LineSegmentIntersector::Intersection::getTextureLookUp(osg::Vec3& tc) const
+{
+    osg::Geometry* geometry = drawable.valid() ? drawable->asGeometry() : 0;
+    osg::Vec3Array* vertices = geometry ? dynamic_cast<osg::Vec3Array*>(geometry->getVertexArray()) : 0;
+
+    if (vertices)
+    {
+        if (indexList.size()==3 && ratioList.size()==3)
+        {
+            unsigned int i1 = indexList[0];
+            unsigned int i2 = indexList[1];
+            unsigned int i3 = indexList[2];
+
+            float r1 = ratioList[0];
+            float r2 = ratioList[1];
+            float r3 = ratioList[2];
+
+            osg::Array* texcoords = (geometry->getNumTexCoordArrays()>0) ? geometry->getTexCoordArray(0) : 0;
+            osg::FloatArray* texcoords_FloatArray = dynamic_cast<osg::FloatArray*>(texcoords);
+            osg::Vec2Array* texcoords_Vec2Array = dynamic_cast<osg::Vec2Array*>(texcoords);
+            osg::Vec3Array* texcoords_Vec3Array = dynamic_cast<osg::Vec3Array*>(texcoords);
+            if (texcoords_FloatArray)
+            {
+                // we have tex coord array so now we can compute the final tex coord at the point of intersection.
+                float tc1 = (*texcoords_FloatArray)[i1];
+                float tc2 = (*texcoords_FloatArray)[i2];
+                float tc3 = (*texcoords_FloatArray)[i3];
+                tc.x() = tc1*r1 + tc2*r2 + tc3*r3;
+            }
+            else if (texcoords_Vec2Array)
+            {
+                // we have tex coord array so now we can compute the final tex coord at the point of intersection.
+                const osg::Vec2& tc1 = (*texcoords_Vec2Array)[i1];
+                const osg::Vec2& tc2 = (*texcoords_Vec2Array)[i2];
+                const osg::Vec2& tc3 = (*texcoords_Vec2Array)[i3];
+                tc.x() = tc1.x()*r1 + tc2.x()*r2 + tc3.x()*r3;
+                tc.y() = tc1.y()*r1 + tc2.y()*r2 + tc3.y()*r3;
+            }
+            else if (texcoords_Vec3Array)
+            {
+                // we have tex coord array so now we can compute the final tex coord at the point of intersection.
+                const osg::Vec3& tc1 = (*texcoords_Vec3Array)[i1];
+                const osg::Vec3& tc2 = (*texcoords_Vec3Array)[i2];
+                const osg::Vec3& tc3 = (*texcoords_Vec3Array)[i3];
+                tc.x() = tc1.x()*r1 + tc2.x()*r2 + tc3.x()*r3;
+                tc.y() = tc1.y()*r1 + tc2.y()*r2 + tc3.y()*r3;
+                tc.z() = tc1.z()*r1 + tc2.z()*r2 + tc3.z()*r3;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        const osg::TexMat* activeTexMat = 0;
+        const osg::Texture* activeTexture = 0;
+
+        if (drawable->getStateSet())
+        {
+            const osg::TexMat* texMat = dynamic_cast<osg::TexMat*>(drawable->getStateSet()->getTextureAttribute(0,osg::StateAttribute::TEXMAT));
+            if (texMat) activeTexMat = texMat;
+
+            const osg::Texture* texture = dynamic_cast<osg::Texture*>(drawable->getStateSet()->getTextureAttribute(0,osg::StateAttribute::TEXTURE));
+            if (texture) activeTexture = texture;
+        }
+
+        for(osg::NodePath::const_reverse_iterator itr = nodePath.rbegin();
+            itr != nodePath.rend() && (!activeTexMat || !activeTexture);
+            ++itr)
+        {
+            const osg::Node* node = *itr;
+            if (node->getStateSet())
+            {
+                if (!activeTexMat)
+                {
+                    const osg::TexMat* texMat = dynamic_cast<const osg::TexMat*>(node->getStateSet()->getTextureAttribute(0,osg::StateAttribute::TEXMAT));
+                    if (texMat) activeTexMat = texMat;
+                }
+
+                if (!activeTexture)
+                {
+                    const osg::Texture* texture = dynamic_cast<const osg::Texture*>(node->getStateSet()->getTextureAttribute(0,osg::StateAttribute::TEXTURE));
+                    if (texture) activeTexture = texture;
+                }
+            }
+        }
+
+        if (activeTexMat)
+        {
+            osg::Vec4 tc_transformed = osg::Vec4(tc.x(), tc.y(), tc.z() ,0.0f) * activeTexMat->getMatrix();
+            tc.x() = tc_transformed.x();
+            tc.y() = tc_transformed.y();
+            tc.z() = tc_transformed.z();
+
+            if (activeTexture && activeTexMat->getScaleByTextureRectangleSize())
+            {
+                tc.x() *= static_cast<float>(activeTexture->getTextureWidth());
+                tc.y() *= static_cast<float>(activeTexture->getTextureHeight());
+                tc.z() *= static_cast<float>(activeTexture->getTextureDepth());
+            }
+        }
+
+        return const_cast<osg::Texture*>(activeTexture);
+
+    }
+    return 0;
 }

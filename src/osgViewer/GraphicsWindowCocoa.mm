@@ -312,7 +312,7 @@ static NSRect convertToQuartzCoordinates(const NSRect& rect)
 
 #if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_6)
 - (osgGA::GUIEventAdapter::TouchPhase) convertTouchPhase: (NSTouchPhase) phase;
-- (unsigned int)computeTouchId: (NSTouch*) touch;
+- (unsigned int)computeTouchId: (NSTouch*) touch mayCleanup: (BOOL) may_cleanup;
 - (void)touchesBeganWithEvent:(NSEvent *)event;
 - (void)touchesMovedWithEvent:(NSEvent *)event;
 - (void)touchesEndedWithEvent:(NSEvent *)event;
@@ -813,7 +813,7 @@ static NSRect convertToQuartzCoordinates(const NSRect& rect)
 }
 
 
-- (unsigned int)computeTouchId: (NSTouch*) touch 
+- (unsigned int)computeTouchId: (NSTouch*) touch mayCleanup: (BOOL) may_cleanup
 {
     unsigned int result(0);
     
@@ -847,7 +847,8 @@ static NSRect convertToQuartzCoordinates(const NSRect& rect)
             {
                 NSNumber* n = [_touchPoints objectForKey: [touch identity]];
                 result = [n intValue];
-                [_touchPoints removeObjectForKey: [touch identity]];
+                if(may_cleanup)
+                    [_touchPoints removeObjectForKey: [touch identity]];
                 if([_touchPoints count] == 0) {
                     _lastTouchPointId = 0;
                 }
@@ -876,7 +877,7 @@ static NSRect convertToQuartzCoordinates(const NSRect& rect)
         NSTouch *touch = [[allTouches allObjects] objectAtIndex:i];
         NSPoint pos = [touch normalizedPosition];
         osg::Vec2 pixelPos(pos.x * bounds.size.width, (1-pos.y) * bounds.size.height);
-        unsigned int touch_id = [self computeTouchId: touch];
+        unsigned int touch_id = [self computeTouchId: touch mayCleanup:FALSE];
         if (!osg_event) {
             osg_event = _win->getEventQueue()->touchBegan(touch_id, [self convertTouchPhase: [touch phase]], pixelPos.x(), pixelPos.y());
         } else {
@@ -897,7 +898,7 @@ static NSRect convertToQuartzCoordinates(const NSRect& rect)
         NSTouch *touch = [[allTouches allObjects] objectAtIndex:i];
         NSPoint pos = [touch normalizedPosition];
         osg::Vec2 pixelPos(pos.x * bounds.size.width, (1 - pos.y) * bounds.size.height);
-        unsigned int touch_id = [self computeTouchId: touch];
+        unsigned int touch_id = [self computeTouchId: touch mayCleanup:FALSE];
         if (!osg_event) {
             osg_event = _win->getEventQueue()->touchMoved(touch_id, [self convertTouchPhase: [touch phase]], pixelPos.x(), pixelPos.y());
         } else {
@@ -919,7 +920,7 @@ static NSRect convertToQuartzCoordinates(const NSRect& rect)
         NSTouch *touch = [[allTouches allObjects] objectAtIndex:i];
         NSPoint pos = [touch normalizedPosition];
         osg::Vec2 pixelPos(pos.x * bounds.size.width, (1 - pos.y) * bounds.size.height);
-        unsigned int touch_id = [self computeTouchId: touch];
+        unsigned int touch_id = [self computeTouchId: touch mayCleanup: TRUE];
         if (!osg_event) {
             osg_event = _win->getEventQueue()->touchEnded(touch_id, [self convertTouchPhase: [touch phase]], pixelPos.x(), pixelPos.y(), 1);
         } else {
@@ -1074,6 +1075,9 @@ void GraphicsWindowCocoa::init()
 
     _updateContext = false;
     _valid = _initialized = true;
+    
+    // make sure the event queue has the correct window rectangle size and input range
+    getEventQueue()->syncWindowRectangleWithGraphcisContext();
 }
 
 
@@ -1241,6 +1245,9 @@ bool GraphicsWindowCocoa::realizeImplementation()
     // Cocoa's origin is bottom/left:
     getEventQueue()->getCurrentEventState()->setMouseYOrientation(osgGA::GUIEventAdapter::Y_INCREASING_UPWARDS);
 
+    // make sure the event queue has the correct window rectangle size and input range
+    getEventQueue()->syncWindowRectangleWithGraphcisContext();
+
     _valid = _initialized = _realized = true;
     return _valid;
 }
@@ -1321,10 +1328,10 @@ void GraphicsWindowCocoa::swapBuffersImplementation()
 // checkEvents
 // process all pending events
 // ----------------------------------------------------------------------------------------------------------
-void GraphicsWindowCocoa::checkEvents()
+bool GraphicsWindowCocoa::checkEvents()
 {
     if (!_checkForEvents)
-        return;
+        return false;
 
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
@@ -1356,6 +1363,8 @@ void GraphicsWindowCocoa::checkEvents()
     }
 
     [pool release];
+    
+    return !(getEventQueue()->empty());
 }
 
 
