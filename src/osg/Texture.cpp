@@ -401,7 +401,7 @@ void Texture::TextureObjectSet::discardAllDeletedTextureObjects()
     _orphanedTextureObjects.clear();
 }
 
-void Texture::TextureObjectSet::flushDeletedTextureObjects(double currentTime, double& availableTime)
+void Texture::TextureObjectSet::flushDeletedTextureObjects(double /*currentTime*/, double& availableTime)
 {
     // OSG_NOTICE<<"Texture::TextureObjectSet::flushDeletedTextureObjects(..)"<<std::endl;
 
@@ -1075,6 +1075,7 @@ Texture::Texture():
             _min_filter(LINEAR_MIPMAP_LINEAR), // trilinear
             _mag_filter(LINEAR),
             _maxAnisotropy(1.0f),
+            _swizzle(GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA),
             _useHardwareMipMapGeneration(true),
             _unrefImageDataAfterApply(false),
             _clientStorageHint(false),
@@ -1101,6 +1102,7 @@ Texture::Texture(const Texture& text,const CopyOp& copyop):
             _min_filter(text._min_filter),
             _mag_filter(text._mag_filter),
             _maxAnisotropy(text._maxAnisotropy),
+            _swizzle(text._swizzle),
             _useHardwareMipMapGeneration(text._useHardwareMipMapGeneration),
             _unrefImageDataAfterApply(text._unrefImageDataAfterApply),
             _clientStorageHint(text._clientStorageHint),
@@ -1133,6 +1135,7 @@ int Texture::compareTexture(const Texture& rhs) const
     COMPARE_StateAttribute_Parameter(_min_filter)
     COMPARE_StateAttribute_Parameter(_mag_filter)
     COMPARE_StateAttribute_Parameter(_maxAnisotropy)
+    COMPARE_StateAttribute_Parameter(_swizzle)
     COMPARE_StateAttribute_Parameter(_useHardwareMipMapGeneration)
     COMPARE_StateAttribute_Parameter(_internalFormatMode)
 
@@ -1226,6 +1229,16 @@ void Texture::setMaxAnisotropy(float anis)
     }
 }
 
+void Texture::bindToImageUnit(unsigned int unit, GLenum access, GLenum format, int level, bool layered, int layer)
+{
+    _imageAttachment.unit = unit;
+    _imageAttachment.level = level;
+    _imageAttachment.layered = layered ? GL_TRUE : GL_FALSE;
+    _imageAttachment.layer = layer;
+    _imageAttachment.access = access;
+    _imageAttachment.format = format;
+    dirtyTextureParameters();
+}
 
 /** Force a recompile on next apply() of associated OpenGL texture objects.*/
 void Texture::dirtyTextureObject()
@@ -1446,7 +1459,7 @@ void Texture::computeInternalFormatWithImage(const osg::Image& image) const
         default: break;
     }
 #endif
-    
+
     _internalFormat = internalFormat;
 
 
@@ -1694,6 +1707,13 @@ void Texture::applyTexParameters(GLenum target, State& state) const
         glTexParameterf(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, _maxAnisotropy);
     }
 
+    if (extensions->isTextureSwizzleSupported())
+    {
+        // note, GL_TEXTURE_SWIZZLE_RGBA will either be defined
+        // by gl.h (or via glext.h) or by include/osg/Texture.
+        glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, _swizzle.ptr());
+    }
+
     if (extensions->isTextureBorderClampSupported())
     {
 
@@ -1738,6 +1758,19 @@ void Texture::applyTexParameters(GLenum target, State& state) const
         else
         {
             glTexParameteri(target, GL_TEXTURE_COMPARE_MODE_ARB, GL_NONE);
+        }
+    }
+
+    // Apply image load/store attributes
+    if (extensions->isBindImageTextureSupported() && _imageAttachment.access!=0)
+    {
+        TextureObject* tobj = getTextureObject(contextID);
+        if (tobj)
+        {
+            extensions->glBindImageTexture(
+                _imageAttachment.unit, tobj->id(), _imageAttachment.level,
+                _imageAttachment.layered, _imageAttachment.layer, _imageAttachment.access,
+                _imageAttachment.format!=0 ? _imageAttachment.format : _internalFormat);
         }
     }
 
@@ -2056,8 +2089,12 @@ void Texture::applyTexImage2D_load(State& state, GLenum target, const Image* ima
         const BufferObject* bo = image->getBufferObject();
         if (bo->getCopyDataAndReleaseGLBufferObject())
         {
-            //OSG_NOTICE<<"Release PBO"<<std::endl;
-            bo->releaseGLObjects(&state);
+            pbo->setBufferDataHasBeenRead(image);
+            if (pbo->hasAllBufferDataBeenRead())
+            {
+                //OSG_NOTICE<<"Release PBO"<<std::endl;
+                bo->releaseGLObjects(&state);
+            }
         }
     }
 
@@ -2314,7 +2351,7 @@ bool Texture::isHardwareMipmapGenerationEnabled(const State& state) const
 
         const FBOExtensions* fbo_ext = FBOExtensions::instance(contextID,true);
 
-        if (fbo_ext->glGenerateMipmap)
+        if (fbo_ext->isSupported() && fbo_ext->glGenerateMipmap)
         {
             return true;
         }
@@ -2331,7 +2368,8 @@ Texture::GenerateMipmapMode Texture::mipmapBeforeTexImage(const State& state, bo
         return GENERATE_MIPMAP;
 #else
 
-        bool useGenerateMipMap = FBOExtensions::instance(state.getContextID(), true)->glGenerateMipmap!=0;
+        FBOExtensions* fbo_ext = FBOExtensions::instance(state.getContextID(),true);
+        bool useGenerateMipMap = fbo_ext->isSupported() && fbo_ext->glGenerateMipmap;
 
         if (useGenerateMipMap)
         {
@@ -2403,7 +2441,7 @@ void Texture::generateMipmap(State& state) const
     osg::FBOExtensions* fbo_ext = osg::FBOExtensions::instance(state.getContextID(), true);
 
     // check if the function is supported
-    if (fbo_ext->glGenerateMipmap)
+    if (fbo_ext->isSupported() && fbo_ext->glGenerateMipmap)
     {
         textureObject->bind();
         fbo_ext->glGenerateMipmap(textureObject->target());
@@ -2482,6 +2520,8 @@ Texture::Extensions::Extensions(unsigned int contextID)
                                  isGLExtensionOrVersionSupported(contextID,"GL_EXT_multitexture", 1.3f);
 
     _isTextureFilterAnisotropicSupported = isGLExtensionSupported(contextID,"GL_EXT_texture_filter_anisotropic");
+
+    _isTextureSwizzleSupported = isGLExtensionSupported(contextID,"GL_ARB_texture_swizzle");
 
     _isTextureCompressionARBSupported = builtInSupport || isGLExtensionOrVersionSupported(contextID,"GL_ARB_texture_compression", 1.3f);
 
@@ -2589,6 +2629,8 @@ Texture::Extensions::Extensions(unsigned int contextID)
 
     if (_glTexParameterIiv == NULL) setGLExtensionFuncPtr(_glTexParameterIiv, "glTexParameterIivEXT");
     if (_glTexParameterIuiv == NULL) setGLExtensionFuncPtr(_glTexParameterIuiv, "glTexParameterIuivEXT");
+
+    setGLExtensionFuncPtr(_glBindImageTexture, "glBindImageTexture", "glBindImageTextureARB");
 
     _isTextureMaxLevelSupported = ( getGLVersionNumber() >= 1.2f );
 }

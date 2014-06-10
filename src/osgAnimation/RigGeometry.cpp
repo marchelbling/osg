@@ -109,7 +109,7 @@ void RigGeometry::buildVertexInfluenceSet()
 
     _vertexInfluenceSet.buildVertex2BoneList();
     _vertexInfluenceSet.buildUniqVertexSetToBoneSetList();
-    OSG_NOTICE << "uniq groups " << _vertexInfluenceSet.getUniqVertexSetToBoneSetList().size() << " for " << getName() << std::endl;
+    OSG_DEBUG << "uniq groups " << _vertexInfluenceSet.getUniqVertexSetToBoneSetList().size() << " for " << getName() << std::endl;
 }
 
 void RigGeometry::computeMatrixFromRootSkeleton()
@@ -153,25 +153,21 @@ void RigGeometry::copyFrom(osg::Geometry& from)
         if (!copyToSelf) target.setVertexArray(from.getVertexArray());
     }
 
-    target.setNormalBinding(from.getNormalBinding());
     if (from.getNormalArray())
     {
         if (!copyToSelf) target.setNormalArray(from.getNormalArray());
     }
 
-    target.setColorBinding(from.getColorBinding());
     if (from.getColorArray())
     {
         if (!copyToSelf) target.setColorArray(from.getColorArray());
     }
 
-    target.setSecondaryColorBinding(from.getSecondaryColorBinding());
     if (from.getSecondaryColorArray())
     {
         if (!copyToSelf) target.setSecondaryColorArray(from.getSecondaryColorArray());
     }
 
-    target.setFogCoordBinding(from.getFogCoordBinding());
     if (from.getFogCoordArray())
     {
         if (!copyToSelf) target.setFogCoordArray(from.getFogCoordArray());
@@ -185,13 +181,13 @@ void RigGeometry::copyFrom(osg::Geometry& from)
         }
     }
 
-    ArrayDataList& arrayList = from.getVertexAttribArrayList();
+    osg::Geometry::ArrayList& arrayList = from.getVertexAttribArrayList();
     for(unsigned int vi=0;vi< arrayList.size();++vi)
     {
-        ArrayData& arrayData = arrayList[vi];
-        if (arrayData.array.valid())
+        osg::Array* array = arrayList[vi].get();
+        if (array)
         {
-            if (!copyToSelf) target.setVertexAttribData(vi,arrayData);
+            if (!copyToSelf) target.setVertexAttribArray(vi,array);
         }
     }
 }

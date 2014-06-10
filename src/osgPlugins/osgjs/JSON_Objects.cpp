@@ -4,6 +4,7 @@
 
 #include "JSON_Objects"
 #include <osgDB/WriteFile>
+#include <osgDB/FileNameUtils>
 #include <osg/Material>
 #include <osg/BlendFunc>
 #include <osg/BlendColor>
@@ -138,7 +139,6 @@ std::pair<unsigned int,unsigned int> JSONVertexArray::writeMergeData(const osg::
     // pad to 4 bytes
     unsigned int diff = fsize - (fsize/4) * 4;
     if (diff > 0) {
-        char* buffer = "FF00FF00";
         visitor._mergeBinaryFile.write(b, diff);
     }
     return std::pair<unsigned int, unsigned int>(offset, fsize-offset);
@@ -200,7 +200,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
     str << JSONObjectBase::indent() << "\"" << type << "\"" << ": { " << std::endl;
     JSONObjectBase::level++;
     if (_useExternalBinaryArray) {
-        str << JSONObjectBase::indent() << "\"File\": \"" << url.str() << "\","<< std::endl;
+        str << JSONObjectBase::indent() << "\"File\": \"" << osgDB::getSimpleFileName(url.str()) << "\","<< std::endl;
     } else {
         if (array->getNumElements() == 0) {
             str << JSONObjectBase::indent() << "\"Elements\": [ ],";

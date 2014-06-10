@@ -54,12 +54,12 @@ ENDMACRO(FIND_DEPENDENCY DEPNAME INCLUDEFILE LIBRARY_NAMES_BASE SEARCHPATHLIST D
 
 
 ################################################################################################
-# this Macro is tailored to Mike dependencies
+# this Macro is tailored to Mike and Torbens dependencies
 ################################################################################################
 
 MACRO(SEARCH_3RDPARTY OSG_3RDPARTY_BIN)
         FIND_DEPENDENCY(TIFF tiff.h libtiff ${OSG_3RDPARTY_BIN} "D" "_i")
-        FIND_DEPENDENCY(FREETYPE ft2build.h "freetype;freetype2311MT;freetype234;freetype234MT;freetype235;freetype237;freetype238;freetype244;" ${OSG_3RDPARTY_BIN} "d" "")
+        FIND_DEPENDENCY(FREETYPE ft2build.h "freetype;freetype2311MT;freetype234;freetype234MT;freetype235;freetype237;freetype238;freetype244;freetype250;" ${OSG_3RDPARTY_BIN} "d" "")
         IF(FREETYPE_FOUND)
             #forcing subsequent FindFreeType stuff to not search for other variables.... kind of a hack 
             SET(FREETYPE_INCLUDE_DIR_ft2build ${FREETYPE_INCLUDE_DIR} CACHE PATH "" FORCE)
@@ -79,21 +79,21 @@ MACRO(SEARCH_3RDPARTY OSG_3RDPARTY_BIN)
         FIND_DEPENDENCY(GIFLIB gif_lib.h "ungif;libungif;giflib" ${OSG_3RDPARTY_BIN} "D" "")
         FIND_DEPENDENCY(ZLIB zlib.h "z;zlib;zlib1" ${OSG_3RDPARTY_BIN} "D" "")
         IF(ZLIB_FOUND)
-            FIND_DEPENDENCY(PNG png.h "libpng;libpng13;libpng15" ${OSG_3RDPARTY_BIN} "D" "")
+            FIND_DEPENDENCY(PNG png.h "libpng;libpng13;libpng15;libpng16" ${OSG_3RDPARTY_BIN} "D" "")
             IF(PNG_FOUND)
                 #forcing subsequent FindPNG stuff to not search for other variables.... kind of a hack 
                 SET(PNG_PNG_INCLUDE_DIR ${PNG_INCLUDE_DIR} CACHE FILEPATH "")
                 MARK_AS_ADVANCED(PNG_PNG_INCLUDE_DIR)
             ENDIF(PNG_FOUND)
         ENDIF(ZLIB_FOUND)
-        FIND_DEPENDENCY(LIBXML2 libxml "libxml2" ${OSG_3RDPARTY_BIN} "D" "")   
+        FIND_DEPENDENCY(LIBXML2 libxml2 "libxml2" ${OSG_3RDPARTY_BIN} "D" "")   
         IF(LIBXML2_FOUND)
             # The CMAKE find libxml module uses LIBXML2_LIBRARIES -> fill it.... kind of a hack 
             SET(LIBXML2_LIBRARIES ${LIBXML2_LIBRARY} CACHE FILEPATH "" FORCE)
             SET(LIBXML2_XMLLINT_EXECUTABLE ${OSG_3RDPARTY_BIN}/bin/xmllint.exe CACHE FILEPATH "Path to xmllint executable" FORCE)
         ENDIF(LIBXML2_FOUND)
         #FIND_DEPENDENCY(DEPNAME INCLUDEFILE LIBRARY_NAMES_BASE SEARCHPATHLIST DEBUGSUFFIX EXSUFFIX)
-        FIND_Package(NVTT)  
+        FIND_Package(NVTT)
 #luigi#INCLUDE(FindOSGDepends.cmake)
 ENDMACRO(SEARCH_3RDPARTY OSG_3RDPARTY_BIN)
 

@@ -43,7 +43,7 @@ typedef NodeContainer::iterator    NodeIterator;
 NodeContainer                    nodes;
 
 //
-osg::Group * Root = 0;
+osg::ref_ptr<osg::Group> Root = 0;
 
 const int HOUSES_SIZE = 25000;        // total number of houses
 double XDim = 5000.0f;                // area dimension +/- XDim
@@ -81,11 +81,11 @@ void CreateHouses()
     };
 
     // use the same color, normal and indices for all houses.
-        osg::Vec4Array* colors = new osg::Vec4Array(1);
+    osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array(1);
     (*colors)[0] = osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
     // normals
-    osg::Vec3Array * normals = new osg::Vec3Array(16);
+    osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array(16);
     (*normals)[0] = osg::Vec3( 0.0f,  -0.0f, -1.0f);
     (*normals)[1] = osg::Vec3( 0.0f,  -0.0f, -1.0f);
     (*normals)[2] = osg::Vec3( 0.0f,  -1.0f,  0.0f);
@@ -104,10 +104,10 @@ void CreateHouses()
     (*normals)[15] = osg::Vec3(-0.707107f,  0.0f, 0.707107f);
 
     // coordIndices
-    osg::UByteArray* coordIndices = new osg::UByteArray(48,indices);
+    osg::ref_ptr<osg::UByteArray> coordIndices = new osg::UByteArray(48,indices);
 
-        // share the primitive set.
-        osg::PrimitiveSet* primitives = new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES,0,48);
+    // share the primitive set.
+    osg::PrimitiveSet* primitives = new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES,0,48);
 
     for (int q = 0; q < HOUSES_SIZE; q++)
     {
@@ -120,11 +120,11 @@ void CreateHouses()
                      * 2 * ZDim) - ZDim;
 
         float scale = 10.0f;
-                
-                osg::Vec3 offset(xPos,yPos,0.0f);
+
+        osg::Vec3 offset(xPos,yPos,0.0f);
 
         // coords
-        osg::Vec3Array* coords = new osg::Vec3Array(10);
+        osg::ref_ptr<osg::Vec3Array> coords = new osg::Vec3Array(10);
         (*coords)[0] = osg::Vec3( 0.5f, -0.7f, 0.0f);
         (*coords)[1] = osg::Vec3( 0.5f,  0.7f, 0.0f);
         (*coords)[2] = osg::Vec3(-0.5f, 0.7f, 0.0f);
@@ -143,23 +143,23 @@ void CreateHouses()
 
 
         // create geometry
-        osg::Geometry * geometry = new osg::Geometry();
-                
-        geometry->addPrimitiveSet(primitives);
-                
-        geometry->setVertexArray(coords);
-                geometry->setVertexIndices(coordIndices);
-                
-        geometry->setColorArray(colors);
-        geometry->setColorBinding(osg::Geometry::BIND_OVERALL);
-                
-        geometry->setNormalArray(normals);
-        geometry->setNormalBinding(osg::Geometry::BIND_PER_PRIMITIVE);
+        osg::ref_ptr<deprecated_osg::Geometry> geometry = new deprecated_osg::Geometry();
 
-        osg::Geode * geode = new osg::Geode();
-        geode->addDrawable(geometry);
-        
-        nodes.push_back(geode);
+        geometry->addPrimitiveSet(primitives);
+
+        geometry->setVertexArray(coords.get());
+        geometry->setVertexIndices(coordIndices.get());
+
+        geometry->setColorArray(colors.get());
+        geometry->setColorBinding(deprecated_osg::Geometry::BIND_OVERALL);
+
+        geometry->setNormalArray(normals.get());
+        geometry->setNormalBinding(deprecated_osg::Geometry::BIND_PER_PRIMITIVE);
+
+        osg::ref_ptr<osg::Geode> geode = new osg::Geode();
+        geode->addDrawable(geometry.get());
+
+        nodes.push_back(geode.get());
     }
 }
 
@@ -187,14 +187,14 @@ void LayoutAsGrid()
     {
         osg::Node * node = nodeIter->get();
         osg::Vec3 center = node->getBound().center();
-        
+
         int x = (int)floor((center.x() - xGridStart) / xGridSize);
         int z = (int)floor((center.y() - yGridStart) / yGridSize);
 
         groups[z * GridX + x]->addChild(node);
     }
- 
-    // add nodes to building root    
+
+    // add nodes to building root
     for (i = 0; i < GridX * GridY; i++)
     {
         osg::StateSet * stateset = new osg::StateSet();
@@ -205,7 +205,7 @@ void LayoutAsGrid()
             0.5f + (static_cast<double> (rand()) / (2.0*static_cast<double> (RAND_MAX))),
             0.5f + (static_cast<double> (rand()) / ( 2.0*static_cast<double>(RAND_MAX))),
             1.0f);
-            
+
         material->setAmbient(osg::Material::FRONT_AND_BACK, color);
         material->setDiffuse(osg::Material::FRONT_AND_BACK, color);
         stateset->setAttributeAndModes(material, osg::StateAttribute::ON);
@@ -244,14 +244,14 @@ int main( int argc, char **argv )
 
 
     // load the nodes from the commandline arguments.
-    osg::Node* model = osgDB::readNodeFiles(arguments);
+    osg::ref_ptr<osg::Node> model = osgDB::readNodeFiles(arguments);
     if (model)
     {
         // the osgSim::InsertImpostorsVisitor used lower down to insert impostors
         // only operators on subclass of Group's, if the model top node is not
         // a group then it won't be able to insert an impostor.  We therefore
         // manually insert an impostor above the model.
-        if (dynamic_cast<osg::Group*>(model)==0)
+        if (dynamic_cast<osg::Group*>(model.get())==0)
         {
             const osg::BoundingSphere& bs = model->getBound();
             if (bs.valid())
@@ -260,7 +260,7 @@ int main( int argc, char **argv )
                 osgSim::Impostor* impostor = new osgSim::Impostor;
 
                 // standard LOD settings
-                impostor->addChild(model);
+                impostor->addChild(model.get());
                 impostor->setRange(0,0.0f,1e7f);
                 impostor->setCenter(bs.center());
 
@@ -278,9 +278,9 @@ int main( int argc, char **argv )
         // we would know about it, other than by following the parent path
         // up from model.  This is really what should be done, but I'll pass
         // on it right now as it requires a getRoots() method to be added to
-        // osg::Node, and we're about to make a release so no new features! 
-        osg::Group* rootnode = new osg::Group;
-        rootnode->addChild(model);
+        // osg::Node, and we're about to make a release so no new features!
+        osg::ref_ptr<osg::Group> rootnode = new osg::Group;
+        rootnode->addChild(model.get());
 
 
         // now insert impostors in the model using the InsertImpostorsVisitor.
@@ -304,7 +304,7 @@ int main( int argc, char **argv )
     }
 
     // add model to viewer.
-    viewer.setSceneData(model);
+    viewer.setSceneData(model.get());
 
     return viewer.run();
 }

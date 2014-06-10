@@ -14,14 +14,14 @@
 #ifndef OSGVIEWER_GRAPHICSWINDOWQT
 #define OSGVIEWER_GRAPHICSWINDOWQT
 
-#include <QtCore/QMutex>
-#include <QtCore/QEvent>
-#include <QtCore/QQueue>
-#include <QtCore/QSet>
-#include <QtOpenGL/QGLWidget>
-
 #include <osgViewer/GraphicsWindow>
 #include <osgQt/Export>
+
+#include <QMutex>
+#include <QEvent>
+#include <QQueue>
+#include <QSet>
+#include <QGLWidget>
 
 class QInputEvent;
 

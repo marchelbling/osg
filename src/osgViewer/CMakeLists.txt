@@ -12,6 +12,7 @@ SET(TARGET_H
     ${HEADER_PATH}/CompositeViewer
     ${HEADER_PATH}/Export
     ${HEADER_PATH}/GraphicsWindow
+    ${HEADER_PATH}/Keystone
     ${HEADER_PATH}/Renderer
     ${HEADER_PATH}/Scene
     ${HEADER_PATH}/Version
@@ -21,10 +22,14 @@ SET(TARGET_H
     ${HEADER_PATH}/ViewerEventHandlers
 )
 
+FILE(GLOB LIB_COMMON_FILES config/*.cpp)
+
 SET(LIB_COMMON_FILES
+    ${LIB_COMMON_FILES}
     CompositeViewer.cpp
     GraphicsWindow.cpp
     HelpHandler.cpp
+    Keystone.cpp
     Renderer.cpp
     Scene.cpp
     ScreenCaptureHandler.cpp
@@ -37,6 +42,7 @@ SET(LIB_COMMON_FILES
     ${OPENSCENEGRAPH_VERSIONINFO_RC}
 )
 
+# Collect all the configuration files
 SET(LIB_EXTRA_LIBS)
 
 IF(WIN32 AND NOT ANDROID)
@@ -63,7 +69,7 @@ IF(WIN32 AND NOT ANDROID)
         PixelBufferWin32.cpp
     )
 ELSE()
-    IF(APPLE)
+    IF(APPLE AND NOT ANDROID) 
 
         IF(OSG_BUILD_PLATFORM_IPHONE OR OSG_BUILD_PLATFORM_IPHONE_SIMULATOR)
             SET(OSG_WINDOWING_SYSTEM "IOS" CACHE STRING "Windowing system type for graphics window creation, options only IOS.")
@@ -253,7 +259,7 @@ SET(TARGET_LIBRARIES
 SET(TARGET_EXTERNAL_LIBRARIES ${LIB_EXTRA_LIBS})
 
 IF(MINGW OR CYGWIN)
-    SET(TARGET_EXTERNAL_LIBRARIES ${TARGET_EXTERNAL_LIBRARY} gdi32 )
+    SET(TARGET_EXTERNAL_LIBRARIES ${TARGET_EXTERNAL_LIBRARIES} gdi32 )
 ENDIF()
 
 SETUP_LIBRARY(${LIB_NAME})

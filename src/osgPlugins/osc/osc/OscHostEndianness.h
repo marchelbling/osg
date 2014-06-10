@@ -51,11 +51,20 @@
 
 #else
 
-    #if defined(__GLIBC__)
+    #if defined(__GLIBC__) || defined(__ANDROID__) || defined(__CYGWIN__)
         #include <endian.h>
         #if (__BYTE_ORDER == __LITTLE_ENDIAN)
             #define __LITTLE_ENDIAN__
         #elif (__BYTE_ORDER == __BIG_ENDIAN)
+            #define __BIG_ENDIAN__
+        #else
+            #error Unknown machine endianness detected.
+        #endif
+    #elif defined(__FreeBSD__)
+        #include <sys/endian.h>
+        #if (_BYTE_ORDER == _LITTLE_ENDIAN)
+            #define __LITTLE_ENDIAN__
+        #elif (_BYTE_ORDER == _BIG_ENDIAN)
             #define __BIG_ENDIAN__
         #else
             #error Unknown machine endianness detected.
@@ -74,7 +83,7 @@
 
     #else
 
-        #error please edit OSCHostEndianness.h to configure endianness
+        #error please edit OscHostEndianness.h to configure endianness
 
     #endif
 

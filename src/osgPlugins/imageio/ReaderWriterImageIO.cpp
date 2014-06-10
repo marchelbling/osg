@@ -254,7 +254,7 @@ osg::Image* CreateOSGImageFromCGImage(CGImageRef image_ref)
 {
     /* This code is adapted from Apple's Documentation found here:
      * http://developer.apple.com/documentation/GraphicsImaging/Conceptual/OpenGL-MacProgGuide/index.html
-     * Listing 9-4††Using a Quartz image as a texture source.
+     * Listing 9-4Using a Quartz image as a texture source.
      * Unfortunately, this guide doesn't show what to do about
      * non-RGBA image formats so I'm making the rest up
      * (and it's probably all wrong).
@@ -262,7 +262,7 @@ osg::Image* CreateOSGImageFromCGImage(CGImageRef image_ref)
 
     size_t the_width = CGImageGetWidth(image_ref);
     size_t the_height = CGImageGetHeight(image_ref);
-    CGRect the_rect = {{0, 0}, {the_width, the_height}};
+    CGRect the_rect = {{0.0f, 0.0f}, {static_cast<CGFloat>(the_width), static_cast<CGFloat>(the_height)}};
 
     size_t bits_per_pixel = CGImageGetBitsPerPixel(image_ref);
     size_t bytes_per_row = CGImageGetBytesPerRow(image_ref);
@@ -374,7 +374,7 @@ osg::Image* CreateOSGImageFromCGImage(CGImageRef image_ref)
         }
 
     }
-    
+
 
     // Sets up a context to be drawn to with image_data as the area to be drawn to
     CGContextRef bitmap_context = CGBitmapContextCreate(
@@ -386,26 +386,26 @@ osg::Image* CreateOSGImageFromCGImage(CGImageRef image_ref)
         color_space,
         bitmap_info
     );
-    
+
     CGContextTranslateCTM(bitmap_context, 0, the_height);
     CGContextScaleCTM(bitmap_context, 1.0, -1.0);
     // Draws the image into the context's image_data
     CGContextDrawImage(bitmap_context, the_rect, image_ref);
 
     CGContextRelease(bitmap_context);
-    
+
     if (!image_data)
         return NULL;
 
     // alpha is premultiplied with rgba, undo it
-    
+
     vImage_Buffer vb;
     vb.data = image_data;
     vb.height = the_height;
     vb.width = the_width;
     vb.rowBytes = the_width * 4;
     vImageUnpremultiplyData_RGBA8888(&vb, &vb, 0);
-    
+
     // changing it to GL_UNSIGNED_BYTE seems working, but I'm not sure if this is a right way.
     //
     data_type = GL_UNSIGNED_BYTE;
@@ -1163,7 +1163,7 @@ public:
         CFRelease(cg_image_ref);
         if (!osg_image)
             return ReadResult::INSUFFICIENT_MEMORY_TO_LOAD;
-        
+
         return osg_image;
     }
 
@@ -1293,6 +1293,16 @@ public:
         if(!fout) return WriteResult::ERROR_IN_WRITING_FILE;
         return writeImage(osg_image, fout, the_options);
 #endif
+    }
+
+    virtual ReadResult readObject(std::istream& fin,const osgDB::ReaderWriter::Options* options =NULL) const
+    {
+        return readImage(fin, options);
+    }
+
+    virtual ReadResult readObject(const std::string& file, const osgDB::ReaderWriter::Options* options =NULL) const
+    {
+        return readImage(file, options);
     }
 
 };

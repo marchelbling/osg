@@ -167,8 +167,8 @@ struct GeometryArrayList {
 
         _attributesArrays.resize(geometry.getNumVertexAttribArrays());
         for(unsigned int i=0;i<geometry.getNumVertexAttribArrays();++i)
-            if (geometry.getVertexAttribArrayList()[i].array && nbvertexes == geometry.getVertexAttribArrayList()[i].array->getNumElements())
-                _attributesArrays[i] = geometry.getVertexAttribArrayList()[i].array;
+            if (geometry.getVertexAttribArrayList()[i] && nbvertexes == geometry.getVertexAttribArrayList()[i]->getNumElements())
+                _attributesArrays[i] = geometry.getVertexAttribArrayList()[i];
     }
 
     void setNumElements(unsigned int nbElements) {

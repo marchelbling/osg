@@ -1420,14 +1420,6 @@ void EdgeCollapse::setGeometry(osg::Geometry* geometry, const Simplifier::IndexL
     _geometry = geometry;
 
     // check to see if vertex attributes indices exists, if so expand them to remove them
-    if (_geometry->suitableForOptimization())
-    {
-        // removing coord indices
-        OSG_INFO<<"EdgeCollapse::setGeometry(..): Removing attribute indices"<<std::endl;
-        _geometry->copyToAndOptimize(*_geometry);
-    }
-
-    // check to see if vertex attributes indices exists, if so expand them to remove them
     if (_geometry->containsSharedArrays())
     {
         // removing coord indices
@@ -1452,21 +1444,21 @@ void EdgeCollapse::setGeometry(osg::Geometry* geometry, const Simplifier::IndexL
             geometry->getTexCoordArray(ti)->accept(copyArrayToPoints);
     }
 
-    if (_geometry->getNormalArray() && _geometry->getNormalBinding()==osg::Geometry::BIND_PER_VERTEX)
+    if (_geometry->getNormalArray() && _geometry->getNormalArray()->getBinding()==osg::Array::BIND_PER_VERTEX)
         geometry->getNormalArray()->accept(copyArrayToPoints);
 
-    if (_geometry->getColorArray() && _geometry->getColorBinding()==osg::Geometry::BIND_PER_VERTEX)
+    if (_geometry->getColorArray() && _geometry->getColorArray()->getBinding()==osg::Array::BIND_PER_VERTEX)
         geometry->getColorArray()->accept(copyArrayToPoints);
 
-    if (_geometry->getSecondaryColorArray() && _geometry->getSecondaryColorBinding()==osg::Geometry::BIND_PER_VERTEX)
+    if (_geometry->getSecondaryColorArray() && _geometry->getSecondaryColorArray()->getBinding()==osg::Array::BIND_PER_VERTEX)
         geometry->getSecondaryColorArray()->accept(copyArrayToPoints);
 
-    if (_geometry->getFogCoordArray() && _geometry->getFogCoordBinding()==osg::Geometry::BIND_PER_VERTEX)
+    if (_geometry->getFogCoordArray() && _geometry->getFogCoordArray()->getBinding()==osg::Array::BIND_PER_VERTEX)
         geometry->getFogCoordArray()->accept(copyArrayToPoints);
 
     for(unsigned int vi=0;vi<_geometry->getNumVertexAttribArrays();++vi)
     {
-        if (_geometry->getVertexAttribArray(vi) &&  _geometry->getVertexAttribBinding(vi)==osg::Geometry::BIND_PER_VERTEX)
+        if (_geometry->getVertexAttribArray(vi) &&  _geometry->getVertexAttribArray(vi)->getBinding()==osg::Array::BIND_PER_VERTEX)
             geometry->getVertexAttribArray(vi)->accept(copyArrayToPoints);
     }
 
@@ -1677,7 +1669,7 @@ void EdgeCollapse::copyBackToGeometry()
             _geometry->getTexCoordArray(ti)->accept(copyArrayToPoints);
     }
 
-    if (_geometry->getNormalArray() && _geometry->getNormalBinding()==osg::Geometry::BIND_PER_VERTEX)
+    if (_geometry->getNormalArray() && _geometry->getNormalArray()->getBinding()==osg::Array::BIND_PER_VERTEX)
     {
         _geometry->getNormalArray()->accept(copyArrayToPoints);
 
@@ -1686,18 +1678,18 @@ void EdgeCollapse::copyBackToGeometry()
         _geometry->getNormalArray()->accept(nav);
     }
 
-    if (_geometry->getColorArray() && _geometry->getColorBinding()==osg::Geometry::BIND_PER_VERTEX)
+    if (_geometry->getColorArray() && _geometry->getColorArray()->getBinding()==osg::Array::BIND_PER_VERTEX)
         _geometry->getColorArray()->accept(copyArrayToPoints);
 
-    if (_geometry->getSecondaryColorArray() && _geometry->getSecondaryColorBinding()==osg::Geometry::BIND_PER_VERTEX)
+    if (_geometry->getSecondaryColorArray() && _geometry->getSecondaryColorArray()->getBinding()==osg::Array::BIND_PER_VERTEX)
         _geometry->getSecondaryColorArray()->accept(copyArrayToPoints);
 
-    if (_geometry->getFogCoordArray() && _geometry->getFogCoordBinding()==osg::Geometry::BIND_PER_VERTEX)
+    if (_geometry->getFogCoordArray() && _geometry->getFogCoordArray()->getBinding()==osg::Array::BIND_PER_VERTEX)
         _geometry->getFogCoordArray()->accept(copyArrayToPoints);
 
     for(unsigned int vi=0;vi<_geometry->getNumVertexAttribArrays();++vi)
     {
-        if (_geometry->getVertexAttribArray(vi) &&  _geometry->getVertexAttribBinding(vi)==osg::Geometry::BIND_PER_VERTEX)
+        if (_geometry->getVertexAttribArray(vi) &&  _geometry->getVertexAttribArray(vi)->getBinding()==osg::Array::BIND_PER_VERTEX)
             _geometry->getVertexAttribArray(vi)->accept(copyArrayToPoints);
     }
 

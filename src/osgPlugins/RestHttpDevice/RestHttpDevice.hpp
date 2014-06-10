@@ -169,19 +169,21 @@ public:
     
 
     
-    virtual void checkEvents()
+    virtual bool checkEvents()
     {
-        if ((fabs(_currentMouseX - _targetMouseY) > 0.1f) || (fabs(_currentMouseY - _targetMouseY) > 0.1))
+        if (_targetMouseChanged && (fabs(_currentMouseX - _targetMouseY) > 0.1f) || (fabs(_currentMouseY - _targetMouseY) > 0.1))
         {
             static const float scalar = 0.2f;
             _currentMouseX = (1.0f - scalar) * _currentMouseX + scalar * _targetMouseX;
             _currentMouseY = (1.0f - scalar) * _currentMouseY + scalar * _targetMouseY;
             getEventQueue()->mouseMotion(_currentMouseX, _currentMouseY, getEventQueue()->getTime());
         }
+        return !(getEventQueue()->empty());
     }
     
     void setTargetMousePosition(float x, float y, bool force = false)
     {
+        _targetMouseChanged = true;
         _targetMouseX = x; _targetMouseY = y;
         if (force) {
             _currentMouseX = x; _currentMouseY = y;
@@ -199,6 +201,7 @@ private:
     double _firstEventRemoteTimeStamp;
     double _lastEventRemoteTimeStamp;
     float _currentMouseX, _currentMouseY, _targetMouseX, _targetMouseY;
+    bool _targetMouseChanged;
     
 };
 

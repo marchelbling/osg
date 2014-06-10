@@ -53,7 +53,7 @@ static bool writeInfluenceMap( osgDB::OutputStream& os, const osgAnimation::RigG
         if ( name.empty() ) name = "Empty";
 
         os << os.PROPERTY("VertexInfluence");
-        os.writeWrappedString(name);
+        os.writeWrappedString(name); 
         os.writeSize(vi.size()) ; os << os.BEGIN_BRACKET << std::endl;
 
         for ( osgAnimation::VertexInfluence::const_iterator vitr=vi.begin();

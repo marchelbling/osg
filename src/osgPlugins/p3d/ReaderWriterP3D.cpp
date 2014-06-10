@@ -132,6 +132,10 @@ public:
 
     void parseStereoPair(osgPresentation::SlideShowConstructor& constructor, osgDB::XmlNode*cur) const;
 
+    void parseTimeout(osgPresentation::SlideShowConstructor& constructor, osgDB::XmlNode*cur) const;
+
+    bool parseLayerChild(osgPresentation::SlideShowConstructor& constructor, osgDB::XmlNode* cur, float& totalIndent) const;
+
     void parseLayer(osgPresentation::SlideShowConstructor& constructor, osgDB::XmlNode*cur) const;
 
     void parseBullets(osgPresentation::SlideShowConstructor& constructor, osgDB::XmlNode*cur, bool inheritPreviousLayers, bool defineAsBaseLayer) const;
@@ -931,6 +935,8 @@ bool ReaderWriterP3DXML::getProperties(osgDB::XmlNode*cur, osgPresentation::Slid
         if (str=="PRE_LOAD_ALL_IMAGES") value.imageSequencePagingMode = osg::ImageSequence::PRE_LOAD_ALL_IMAGES;
         else if (str=="PAGE_AND_RETAIN_IMAGES") value.imageSequencePagingMode = osg::ImageSequence::PAGE_AND_RETAIN_IMAGES;
         else if (str=="PAGE_AND_DISCARD_USED_IMAGES") value.imageSequencePagingMode = osg::ImageSequence::PAGE_AND_DISCARD_USED_IMAGES;
+        else if (str=="LOAD_AND_RETAIN_IN_UPDATE_TRAVERSAL") value.imageSequencePagingMode = osg::ImageSequence::LOAD_AND_RETAIN_IN_UPDATE_TRAVERSAL;
+        else if (str=="LOAD_AND_DISCARD_IN_UPDATE_TRAVERSAL") value.imageSequencePagingMode = osg::ImageSequence::LOAD_AND_DISCARD_IN_UPDATE_TRAVERSAL;
 
         OSG_NOTIFY(_notifyLevel)<<"read imageSequencePagingMode \""<<value.imageSequencePagingMode<<"\""<<std::endl;
     }
@@ -1077,7 +1083,7 @@ bool ReaderWriterP3DXML::parsePropertyAnimation(osgDB::XmlNode* root, osgPresent
                 if (parseProperties(cur, *udc))
                 {
                     OSG_NOTICE<<"Adding keyframe"<<std::endl;
-                    pa.addKeyFrame(time, udc);
+                    pa.addKeyFrame(time, udc.get());
                     readKeyframes = true;
                 }
             }
@@ -1413,7 +1419,7 @@ bool ReaderWriterP3DXML::getKeyPositionInner(osgDB::XmlNode*cur, osgPresentation
     {
         keyValue = itr->second;
     }
-    if (key.find("0x",0,2)!=std::string::npos)
+    else if (key.find("0x",0,2)!=std::string::npos)
     {
         std::istringstream iss(key);
         iss>>std::hex>>keyValue;
@@ -1432,7 +1438,7 @@ bool ReaderWriterP3DXML::getKeyPositionInner(osgDB::XmlNode*cur, osgPresentation
     }
     else
     {
-        OSG_NOTICE<<"Warning: invalid key used in <key>"<<key<<"</key>, ignoring tag."<<std::endl;
+        OSG_NOTICE<<"Warning: invalid key used in <key>"<<key<<"</key>, ignoring tag. key=["<<key<<"]"<<std::endl;
         return false;
     }
 
@@ -1441,13 +1447,310 @@ bool ReaderWriterP3DXML::getKeyPositionInner(osgDB::XmlNode*cur, osgPresentation
 }
 
 
+void ReaderWriterP3DXML::parseTimeout(osgPresentation::SlideShowConstructor& constructor, osgDB::XmlNode* root) const
+{
+    // to allow the timeout to be nested with a Layer but still behave like a Layer itself we push the timeout as a Layer, saving the original Layer
+    constructor.pushCurrentLayer();
 
+    osg::ref_ptr<osgPresentation::Timeout> timeout = constructor.addTimeout();
+
+    OSG_NOTICE<<"parseTimeout"<<std::endl;
+
+    float totalIndent = 0.0f;
+
+    for(osgDB::XmlNode::Children::iterator itr = root->children.begin();
+        itr != root->children.end();
+        ++itr)
+    {
+        osgDB::XmlNode* cur = itr->get();
+        if (parseLayerChild(constructor, cur, totalIndent))
+        {
+            // no need to do anything
+        }
+        else if (cur->name == "timeout_jump")
+        {
+            osgPresentation::JumpData jumpData;
+            if (getJumpProperties(cur, jumpData))
+            {
+                OSG_NOTICE<<"Timeout Jump "<<jumpData.relativeJump<<","<< jumpData.slideNum<<", "<<jumpData.layerNum<<std::endl;
+                timeout->setActionJumpData(jumpData);
+            }
+        }
+        else if (cur->name == "timeout_event")
+        {
+            osgPresentation::KeyPosition keyPosition;
+            if (getKeyPositionInner( cur, keyPosition))
+            {
+                OSG_NOTICE<<"timeout event ["<<keyPosition._key<<"]"<<std::endl;
+                timeout->setActionKeyPosition(keyPosition);
+            }
+        }
+        else if (cur->name == "display_broadcast_event")
+        {
+            osgPresentation::KeyPosition keyPosition;
+            if (getKeyPositionInner( cur, keyPosition))
+            {
+                OSG_NOTICE<<"display broadcast event ["<<keyPosition._key<<"]"<<std::endl;
+                timeout->setDisplayBroadcastKeyPosition(keyPosition);
+            }
+        }
+        else if (cur->name == "dismiss_broadcast_event")
+        {
+            osgPresentation::KeyPosition keyPosition;
+            if (getKeyPositionInner( cur, keyPosition))
+            {
+                OSG_NOTICE<<"dismiss broadcast event ["<<keyPosition._key<<"]"<<std::endl;
+                timeout->setDismissBroadcastKeyPosition(keyPosition);
+            }
+        }
+        else if (cur->name == "timeout_broadcast_event")
+        {
+            osgPresentation::KeyPosition keyPosition;
+            if (getKeyPositionInner( cur, keyPosition))
+            {
+                OSG_NOTICE<<"timeout broadcast event ["<<keyPosition._key<<"]"<<std::endl;
+                timeout->setActionBroadcastKeyPosition(keyPosition);
+            }
+        }
+        else if (cur->name == "idle_duration_before_timeout_display")
+        {
+            std::istringstream iss(cur->getTrimmedContents());
+            double duration;
+            iss>>duration;
+            if (!iss.fail())
+            {
+                OSG_NOTICE<<"timeout->setIdleDurationBeforeTimeoutDisplay("<<duration<<")"<<std::endl;
+                timeout->setIdleDurationBeforeTimeoutDisplay(duration);
+            }
+        }
+        else if (cur->name == "idle_duration_before_timeout_action")
+        {
+            std::istringstream iss(cur->getTrimmedContents());
+            double duration;
+            iss>>duration;
+            if (!iss.fail())
+            {
+                OSG_NOTICE<<"timeout->setIdleDurationBeforeTimeoutAction("<<duration<<")"<<std::endl;
+                timeout->setIdleDurationBeforeTimeoutAction(duration);
+            }
+        }
+        else if (cur->name == "key_starts_timeout_display")
+        {
+            osgPresentation::KeyPosition keyPosition;
+            if (getKeyPositionInner( cur, keyPosition) && keyPosition._key!=0)
+            {
+                OSG_NOTICE<<"timeout->setKeyStartsTimoutDisplay("<<keyPosition._key<<")"<<std::endl;
+                timeout->setKeyStartsTimoutDisplay(keyPosition._key);
+            }
+        }
+        else if (cur->name == "key_dismiss_timeout_display")
+        {
+            osgPresentation::KeyPosition keyPosition;
+            if (getKeyPositionInner( cur, keyPosition) && keyPosition._key!=0)
+            {
+                OSG_NOTICE<<"timeout->setKeyDismissTimoutDisplay("<<keyPosition._key<<")"<<std::endl;
+                timeout->setKeyDismissTimoutDisplay(keyPosition._key);
+            }
+        }
+        else if (cur->name == "key_run_action")
+        {
+            osgPresentation::KeyPosition keyPosition;
+            if (getKeyPositionInner( cur, keyPosition) && keyPosition._key!=0)
+            {
+                OSG_NOTICE<<"timeout->setKeyRunTimoutAction("<<keyPosition._key<<")"<<std::endl;
+                timeout->setKeyRunTimoutAction(keyPosition._key);
+            }
+        }
+        
+    }
+
+    
+    constructor.popCurrentLayer(); // return the
+}
+
+bool ReaderWriterP3DXML::parseLayerChild(osgPresentation::SlideShowConstructor& constructor, osgDB::XmlNode* cur, float& totalIndent) const
+{
+    if (cur->name == "newline")
+    {
+        constructor.translateTextCursor(osg::Vec3(0.0f,-0.05f,0.0f));
+        return true;
+    }
+    else if (cur->name == "indent")
+    {
+        float localIndent = 0.05f;
+        constructor.translateTextCursor(osg::Vec3(localIndent,0.0f,0.0f));
+        totalIndent += localIndent;
+        return true;
+    }
+    else if (cur->name == "unindent")
+    {
+        float localIndent = -0.05f;
+        constructor.translateTextCursor(osg::Vec3(localIndent,0.0f,0.0f));
+        totalIndent += localIndent;
+        return true;
+    }
+    else if (cur->name == "bullet")
+    {
+        OSG_INFO<<"bullet ["<<cur->contents<<"]"<<std::endl;
+        osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getTextPositionData();
+        bool positionRead = getProperties(cur,positionData);
+
+        osgPresentation::SlideShowConstructor::FontData fontData = constructor.getTextFontData();
+        bool fontRead = getProperties(cur,fontData);
+
+        constructor.addBullet(cur->contents,
+                                positionRead ? positionData : constructor.getTextPositionData(),
+                                fontRead ? fontData : constructor.getTextFontData());
+        return true;
+    }
+    else if (cur->name == "paragraph")
+    {
+        osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getTextPositionData();
+        bool positionRead = getProperties(cur,positionData);
+
+        osgPresentation::SlideShowConstructor::FontData fontData = constructor.getTextFontData();
+        bool fontRead = getProperties(cur,fontData);
+
+        constructor.addParagraph(cur->contents,
+                                    positionRead ? positionData : constructor.getTextPositionData(),
+                                    fontRead ? fontData : constructor.getTextFontData());
+        return true;
+    }
+    else if (cur->name == "image")
+    {
+        osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
+        bool positionRead = getProperties(cur,positionData);
+
+        osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
+        getProperties(cur,imageData);
+
+        constructor.addImage(cur->getTrimmedContents(),
+                                positionRead ? positionData : constructor.getImagePositionData(),
+                                imageData);
+        return true;
+    }
+    else if (cur->name == "imagesequence")
+    {
+        osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
+        bool positionRead = getProperties(cur,positionData);
+
+        osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
+        imageData.imageSequence = true;
+        getProperties(cur,imageData);
+
+        constructor.addImage(cur->getTrimmedContents(),
+                                positionRead ? positionData : constructor.getImagePositionData(),
+                                imageData);
+        return true;
+    }
+    else if (cur->name == "graph")
+    {
+        osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
+        bool positionRead = getProperties(cur,positionData);
+
+        osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
+        getProperties(cur,imageData);
+
+        std::string options;
+        getProperty(cur, "options", options);
+
+        constructor.addGraph(cur->getTrimmedContents(),
+                                positionRead ? positionData : constructor.getImagePositionData(),
+                                imageData);
+        return true;
+    }
+    else if (cur->name == "vnc")
+    {
+        osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
+        bool positionRead = getProperties(cur,positionData);
+
+        osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
+        getProperties(cur,imageData);
+
+        std::string password;
+        getProperty(cur, "password", password);
+
+        constructor.addVNC(cur->getTrimmedContents(),
+                                positionRead ? positionData : constructor.getImagePositionData(),
+                                imageData,
+                                password
+                            );
+        return true;
+    }
+    else if (cur->name == "browser")
+    {
+        osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
+        bool positionRead = getProperties(cur,positionData);
+
+        osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
+        getProperties(cur,imageData);
+
+        constructor.addBrowser(cur->getTrimmedContents(),
+                                positionRead ? positionData : constructor.getImagePositionData(),
+                                imageData);
+        return true;
+    }
+    else if (cur->name == "pdf")
+    {
+        osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
+        bool positionRead = getProperties(cur,positionData);
+
+        osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
+        getProperties(cur,imageData);
+
+        constructor.addPDF(cur->getTrimmedContents(),
+                                positionRead ? positionData : constructor.getImagePositionData(),
+                                imageData);
+        return true;
+    }
+    else if (cur->name == "stereo_pair")
+    {
+        parseStereoPair(constructor, cur);
+        return true;
+    }
+    else if (cur->name == "model")
+    {
+        parseModel(constructor, cur);
+        return true;
+    }
+    else if (cur->name == "volume")
+    {
+        parseVolume(constructor, cur);
+        return true;
+    }
+    else if (cur->name == "duration")
+    {
+        constructor.setLayerDuration(osg::asciiToDouble(cur->contents.c_str()));
+        return true;
+    }
+    else if (cur->name == "property_animation")
+    {
+        osg::ref_ptr<osgPresentation::PropertyAnimation> pa = new osgPresentation::PropertyAnimation;
+        if (parsePropertyAnimation(cur,*pa))
+        {
+            constructor.addPropertyAnimation(osgPresentation::SlideShowConstructor::CURRENT_LAYER, pa.get());
+        }
+        return true;
+    }
+    else if (cur->name == "properties")
+    {
+        if (!constructor.getCurrentLayer()) constructor.addLayer();
+        if (constructor.getCurrentLayer())
+        {
+            osg::ref_ptr<osg::UserDataContainer> udc = constructor.getCurrentLayer()->getOrCreateUserDataContainer();
+            if (parseProperties(cur, *udc))
+            {
+                OSG_NOTICE<<"Assigned properties to Layer"<<std::endl;
+            }
+        }
+        return true;
+    }
+
+    return false;
+}
 
 void ReaderWriterP3DXML::parseLayer(osgPresentation::SlideShowConstructor& constructor, osgDB::XmlNode* root) const
 {
-    // create a keyPosition just in case we need it.
-    osgPresentation::KeyPosition keyPosition;
-
     OSG_INFO<<std::endl<<"parseLayer"<<std::endl;
 
     float totalIndent = 0.0f;
@@ -1457,7 +1760,15 @@ void ReaderWriterP3DXML::parseLayer(osgPresentation::SlideShowConstructor& const
         ++itr)
     {
         osgDB::XmlNode* cur = itr->get();
-        if (cur->name == "run")
+        if (parseLayerChild(constructor, cur, totalIndent))
+        {
+            // no need to do anything
+        }
+        else if (cur->name == "timeout")
+        {
+            parseTimeout(constructor, cur);
+        }
+        else if (cur->name == "run")
         {
             OSG_INFO<<"run ["<<cur->contents<<"]"<<std::endl;
             constructor.addLayerRunString(cur->contents);
@@ -1503,6 +1814,7 @@ void ReaderWriterP3DXML::parseLayer(osgPresentation::SlideShowConstructor& const
             osgPresentation::JumpData jumpData;
             getJumpProperties(cur, jumpData);
 
+            osgPresentation::KeyPosition keyPosition;
             if (getKeyPositionInner( cur, keyPosition))
             {
                 OSG_INFO<<"click_to_event ["<<keyPosition._key<<"]"<<std::endl;
@@ -1551,6 +1863,7 @@ void ReaderWriterP3DXML::parseLayer(osgPresentation::SlideShowConstructor& const
                 osgPresentation::JumpData jumpData;
                 getJumpProperties(cur, jumpData);
 
+                osgPresentation::KeyPosition keyPosition;
                 if (getKeyPositionInner( cur, keyPosition))
                 {
                     OSG_NOTICE<<"key_to_event ["<<keyPosition._key<<"]"<<std::endl;
@@ -1576,168 +1889,13 @@ void ReaderWriterP3DXML::parseLayer(osgPresentation::SlideShowConstructor& const
                 OSG_NOTICE<<"key_to_jump failed."<<std::endl;
             }
         }
-
-        else if (cur->name == "newline")
+        else 
         {
-            constructor.translateTextCursor(osg::Vec3(0.0f,-0.05f,0.0f));
-        }
-        else if (cur->name == "indent")
-        {
-            float localIndent = 0.05f;
-            constructor.translateTextCursor(osg::Vec3(localIndent,0.0f,0.0f));
-            totalIndent += localIndent;
-        }
-        else if (cur->name == "unindent")
-        {
-            float localIndent = -0.05f;
-            constructor.translateTextCursor(osg::Vec3(localIndent,0.0f,0.0f));
-            totalIndent += localIndent;
-        }
-        else if (cur->name == "bullet")
-        {
-            OSG_INFO<<"bullet ["<<cur->contents<<"]"<<std::endl;
-            osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getTextPositionData();
-            bool positionRead = getProperties(cur,positionData);
-
-            osgPresentation::SlideShowConstructor::FontData fontData = constructor.getTextFontData();
-            bool fontRead = getProperties(cur,fontData);
-
-            constructor.addBullet(cur->contents,
-                                    positionRead ? positionData : constructor.getTextPositionData(),
-                                    fontRead ? fontData : constructor.getTextFontData());
-        }
-        else if (cur->name == "paragraph")
-        {
-            osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getTextPositionData();
-            bool positionRead = getProperties(cur,positionData);
-
-            osgPresentation::SlideShowConstructor::FontData fontData = constructor.getTextFontData();
-            bool fontRead = getProperties(cur,fontData);
-
-            constructor.addParagraph(cur->contents,
-                                        positionRead ? positionData : constructor.getTextPositionData(),
-                                        fontRead ? fontData : constructor.getTextFontData());
-        }
-        else if (cur->name == "image")
-        {
-            osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
-            bool positionRead = getProperties(cur,positionData);
-
-            osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
-            getProperties(cur,imageData);
-
-            constructor.addImage(cur->getTrimmedContents(),
-                                    positionRead ? positionData : constructor.getImagePositionData(),
-                                    imageData);
-        }
-        else if (cur->name == "imagesequence")
-        {
-            osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
-            bool positionRead = getProperties(cur,positionData);
-
-            osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
-            imageData.imageSequence = true;
-            getProperties(cur,imageData);
-
-            constructor.addImage(cur->getTrimmedContents(),
-                                    positionRead ? positionData : constructor.getImagePositionData(),
-                                    imageData);
-        }
-        else if (cur->name == "graph")
-        {
-            osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
-            bool positionRead = getProperties(cur,positionData);
-
-            osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
-            getProperties(cur,imageData);
-
-            std::string options;
-            getProperty(cur, "options", options);
-
-            constructor.addGraph(cur->getTrimmedContents(),
-                                 positionRead ? positionData : constructor.getImagePositionData(),
-                                 imageData);
-        }
-        else if (cur->name == "vnc")
-        {
-            osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
-            bool positionRead = getProperties(cur,positionData);
-
-            osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
-            getProperties(cur,imageData);
-
-            std::string password;
-            getProperty(cur, "password", password);
-
-            constructor.addVNC(cur->getTrimmedContents(),
-                                    positionRead ? positionData : constructor.getImagePositionData(),
-                                    imageData,
-                                    password
-                              );
-        }
-        else if (cur->name == "browser")
-        {
-            osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
-            bool positionRead = getProperties(cur,positionData);
-
-            osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
-            getProperties(cur,imageData);
-
-            constructor.addBrowser(cur->getTrimmedContents(),
-                                    positionRead ? positionData : constructor.getImagePositionData(),
-                                    imageData);
-        }
-        else if (cur->name == "pdf")
-        {
-            osgPresentation::SlideShowConstructor::PositionData positionData = constructor.getImagePositionData();
-            bool positionRead = getProperties(cur,positionData);
-
-            osgPresentation::SlideShowConstructor::ImageData imageData;// = constructor.getImageData();
-            getProperties(cur,imageData);
-
-            constructor.addPDF(cur->getTrimmedContents(),
-                                    positionRead ? positionData : constructor.getImagePositionData(),
-                                    imageData);
-        }
-        else if (cur->name == "stereo_pair")
-        {
-            parseStereoPair(constructor, cur);
-        }
-        else if (cur->name == "model")
-        {
-            parseModel(constructor, cur);
-        }
-        else if (cur->name == "volume")
-        {
-            parseVolume(constructor, cur);
-        }
-        else if (cur->name == "duration")
-        {
-            constructor.setLayerDuration(osg::asciiToDouble(cur->contents.c_str()));
-        }
-        else if (cur->name == "property_animation")
-        {
-            osg::ref_ptr<osgPresentation::PropertyAnimation> pa = new osgPresentation::PropertyAnimation;
-            if (parsePropertyAnimation(cur,*pa))
+            osgPresentation::KeyPosition keyPosition;
+            if (getKeyPosition(cur, keyPosition))
             {
-                constructor.addPropertyAnimation(osgPresentation::SlideShowConstructor::CURRENT_LAYER, pa.get());
+                constructor.addLayerKey(keyPosition);
             }
-        }
-        else if (cur->name == "properties")
-        {
-            if (!constructor.getCurrentLayer()) constructor.addLayer();
-            if (constructor.getCurrentLayer())
-            {
-                osg::ref_ptr<osg::UserDataContainer> udc = constructor.getCurrentLayer()->getOrCreateUserDataContainer();
-                if (parseProperties(cur, *udc))
-                {
-                    OSG_NOTICE<<"Assigned properties to Layer"<<std::endl;
-                }
-            }
-        }
-        else if (getKeyPosition(cur, keyPosition))
-        {
-            constructor.addLayerKey(keyPosition);
         }
     }
 
@@ -1966,17 +2124,33 @@ void ReaderWriterP3DXML::parseSlide (osgPresentation::SlideShowConstructor& cons
             if (cur->name == "base")
             {
                 constructor.addLayer(true, true);
+                std::string inherit;
+                if (getProperty(cur, "inherit", inherit) && !inherit.empty() && _templateMap.count(inherit)!=0)
+                {
+                    parseLayer(constructor, _templateMap[inherit].get());
+                }
                 parseLayer (constructor, cur);
 
             }
             else if (cur->name == "layer")
             {
                 constructor.addLayer(true, false);
+                std::string inherit;
+                if (getProperty(cur, "inherit", inherit) && !inherit.empty() && _templateMap.count(inherit)!=0)
+                {
+                    parseLayer(constructor, _templateMap[inherit].get());
+                }
+                
                 parseLayer (constructor, cur);
             }
             else if (cur->name == "clean_layer")
             {
                 constructor.addLayer(false, false);
+                std::string inherit;
+                if (getProperty(cur, "inherit", inherit) && !inherit.empty() && _templateMap.count(inherit)!=0)
+                {
+                    parseLayer(constructor, _templateMap[inherit].get());
+                }
                 parseLayer (constructor, cur);
             }
             else if (cur->name == "modify_layer")
@@ -2721,6 +2895,15 @@ osg::Node* ReaderWriterP3DXML::parseXmlGraph(osgDB::XmlNode* root, bool readOnly
             {
                 _templateMap[name] = cur;
                 std::cout<<"Defining template slide "<<name<<std::endl;
+            }
+        }
+        else if (!readOnlyHoldingPage && cur->name == "template_layer")
+        {
+            std::string name;
+            if (getProperty(cur, "name", name))
+            {
+                _templateMap[name] = cur;
+                std::cout<<"Defining template layer "<<name<<std::endl;
             }
         }
         else if (!readOnlyHoldingPage && cur->name == "property_animation")

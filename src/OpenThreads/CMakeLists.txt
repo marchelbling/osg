@@ -2,10 +2,10 @@
 # what to do with it.
 ADD_DEFINITIONS(-DOPENTHREADS_EXPORTS)
 
-SET(OPENTHREADS_MAJOR_VERSION 2)
-SET(OPENTHREADS_MINOR_VERSION 6)
-SET(OPENTHREADS_PATCH_VERSION 0)
-SET(OPENTHREADS_SOVERSION 12)
+SET(OPENTHREADS_MAJOR_VERSION 3)
+SET(OPENTHREADS_MINOR_VERSION 2)
+SET(OPENTHREADS_PATCH_VERSION 1)
+SET(OPENTHREADS_SOVERSION 20)
 
 SET(OPENTHREADS_VERSION ${OPENTHREADS_MAJOR_VERSION}.${OPENTHREADS_MINOR_VERSION}.${OPENTHREADS_PATCH_VERSION})
 
@@ -55,10 +55,10 @@ SET(OpenThreads_PUBLIC_HEADERS
     ${HEADER_PATH}/Block
     ${HEADER_PATH}/Condition
     ${HEADER_PATH}/Exports
-    ${HEADER_PATH}/Mutex  
-    ${HEADER_PATH}/ReadWriteMutex  
-    ${HEADER_PATH}/ReentrantMutex  
-    ${HEADER_PATH}/ScopedLock  
+    ${HEADER_PATH}/Mutex
+    ${HEADER_PATH}/ReadWriteMutex
+    ${HEADER_PATH}/ReentrantMutex
+    ${HEADER_PATH}/ScopedLock
     ${HEADER_PATH}/Thread
     ${HEADER_PATH}/Version
     ${OPENTHREADS_CONFIG_HEADER}
@@ -81,14 +81,14 @@ IF(CMAKE_SYSTEM MATCHES IRIX)
 ENDIF(CMAKE_SYSTEM MATCHES IRIX)
 
 # Add support for using Qt threads
-IF(QT4_FOUND)
+IF(QT4_FOUND OR Qt5Widgets_FOUND)
     OPTION(BUILD_OPENTHREADS_WITH_QT "Build OpenThreads with Qt threading support." OFF)
 ENDIF()
 
 # Maybe we should be using the FindThreads.cmake module?
 IF(ANDROID)
     SUBDIRS(pthreads)
-ELSEIF(QT4_FOUND AND BUILD_OPENTHREADS_WITH_QT)
+ELSEIF((QT4_FOUND OR Qt5Widgets_FOUND) AND BUILD_OPENTHREADS_WITH_QT)
     SUBDIRS(qt)
 ELSEIF(WIN32)
     # So I think Cygwin wants to use pthreads
@@ -96,7 +96,7 @@ ELSEIF(WIN32)
         SUBDIRS(pthreads)
     ELSE()
         # Everybody else including Msys should probably go here
-        SUBDIRS(win32) 
+        SUBDIRS(win32)
         # examples)
     ENDIF()
 ELSE()

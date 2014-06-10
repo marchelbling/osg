@@ -79,6 +79,7 @@ void DisplaySettings::setDisplaySettings(const DisplaySettings& vs)
 
     _compileContextsHint = vs._compileContextsHint;
     _serializeDrawDispatch = vs._serializeDrawDispatch;
+    _useSceneViewForStereoHint = vs._useSceneViewForStereoHint;
 
     _numDatabaseThreadsHint = vs._numDatabaseThreadsHint;
     _numHttpDatabaseThreadsHint = vs._numHttpDatabaseThreadsHint;
@@ -95,6 +96,10 @@ void DisplaySettings::setDisplaySettings(const DisplaySettings& vs)
     _glContextFlags = vs._glContextFlags;
     _glContextProfileMask = vs._glContextProfileMask;
     _swapMethod = vs._swapMethod;
+
+    _keystoneHint = vs._keystoneHint;
+    _keystoneFileNames = vs._keystoneFileNames;
+    _keystones = vs._keystones;
 }
 
 void DisplaySettings::merge(const DisplaySettings& vs)
@@ -113,6 +118,7 @@ void DisplaySettings::merge(const DisplaySettings& vs)
 
     if (vs._compileContextsHint) _compileContextsHint = vs._compileContextsHint;
     if (vs._serializeDrawDispatch) _serializeDrawDispatch = vs._serializeDrawDispatch;
+    if (vs._useSceneViewForStereoHint) _useSceneViewForStereoHint = vs._useSceneViewForStereoHint;
 
     if (vs._numDatabaseThreadsHint>_numDatabaseThreadsHint) _numDatabaseThreadsHint = vs._numDatabaseThreadsHint;
     if (vs._numHttpDatabaseThreadsHint>_numHttpDatabaseThreadsHint) _numHttpDatabaseThreadsHint = vs._numHttpDatabaseThreadsHint;
@@ -129,6 +135,28 @@ void DisplaySettings::merge(const DisplaySettings& vs)
     // merge swap method to higher value
     if( vs._swapMethod > _swapMethod )
         _swapMethod = vs._swapMethod;
+
+    _keystoneHint = _keystoneHint | vs._keystoneHint;
+
+    // insert any unique filenames into the local list
+    for(FileNames::const_iterator itr = vs._keystoneFileNames.begin();
+        itr != vs._keystoneFileNames.end();
+        ++itr)
+    {
+        const std::string& filename = *itr;
+        FileNames::iterator found_itr = std::find(_keystoneFileNames.begin(), _keystoneFileNames.end(), filename);
+        if (found_itr == _keystoneFileNames.end()) _keystoneFileNames.push_back(filename);
+    }
+
+    // insert unique Keystone object into local list
+    for(Objects::const_iterator itr = vs._keystones.begin();
+        itr != vs._keystones.end();
+        ++itr)
+    {
+        const osg::Object* object = itr->get();
+        Objects::iterator found_itr = std::find(_keystones.begin(), _keystones.end(), object);
+        if (found_itr == _keystones.end()) _keystones.push_back(const_cast<osg::Object*>(object));
+    }
 }
 
 void DisplaySettings::setDefaults()
@@ -148,7 +176,7 @@ void DisplaySettings::setDefaults()
     _splitStereoVerticalEyeMapping = LEFT_EYE_TOP_VIEWPORT;
     _splitStereoVerticalSeparation = 0;
 
-    _splitStereoAutoAdjustAspectRatio = true;
+    _splitStereoAutoAdjustAspectRatio = false;
 
     _doubleBuffer = true;
     _RGB = true;
@@ -169,7 +197,8 @@ void DisplaySettings::setDefaults()
     #endif
 
     _compileContextsHint = false;
-    _serializeDrawDispatch = true;
+    _serializeDrawDispatch = false;
+    _useSceneViewForStereoHint = true;
 
     _numDatabaseThreadsHint = 2;
     _numHttpDatabaseThreadsHint = 1;
@@ -184,6 +213,8 @@ void DisplaySettings::setDefaults()
     _glContextProfileMask = 0;
 
     _swapMethod = SWAP_DEFAULT;
+
+    _keystoneHint = false;
 }
 
 void DisplaySettings::setMaxNumberOfGraphicsContexts(unsigned int num)
@@ -237,7 +268,7 @@ static ApplicationUsageProxy DisplaySetting_e9(ApplicationUsage::ENVIRONMENTAL_V
         "LEFT_EYE_TOP_VIEWPORT | LEFT_EYE_BOTTOM_VIEWPORT");
 static ApplicationUsageProxy DisplaySetting_e10(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_SPLIT_STEREO_AUTO_ADJUST_ASPECT_RATIO <mode>",
-        "OFF | ON  Default to ON to compenstate for the compression of the aspect ratio when viewing in split screen stereo.  Note, if you are setting fovx and fovy explicityly OFF should be used.");
+        "OFF | ON  Default to OFF to compenstate for the compression of the aspect ratio when viewing in split screen stereo.  Note, if you are setting fovx and fovy explicityly OFF should be used.");
 static ApplicationUsageProxy DisplaySetting_e11(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_SPLIT_STEREO_VERTICAL_SEPARATION <float>",
         "Number of pixels between viewports.");
@@ -251,41 +282,50 @@ static ApplicationUsageProxy DisplaySetting_e14(ApplicationUsage::ENVIRONMENTAL_
         "OSG_SERIALIZE_DRAW_DISPATCH <mode>",
         "OFF | ON Disable/enable the use of a mutex to serialize the draw dispatch when there are multiple graphics threads.");
 static ApplicationUsageProxy DisplaySetting_e15(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+        "OSG_USE_SCENEVIEW_FOR_STEREO <mode>",
+        "OFF | ON Disable/enable the hint to use osgUtil::SceneView to implement stereo when required..");
+static ApplicationUsageProxy DisplaySetting_e16(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_NUM_DATABASE_THREADS <int>",
         "Set the hint for the total number of threads to set up in the DatabasePager.");
-static ApplicationUsageProxy DisplaySetting_e16(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e17(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_NUM_HTTP_DATABASE_THREADS <int>",
         "Set the hint for the total number of threads dedicated to http requests to set up in the DatabasePager.");
-static ApplicationUsageProxy DisplaySetting_e17(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e18(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_MULTI_SAMPLES <int>",
         "Set the hint for the number of samples to use when multi-sampling.");
-static ApplicationUsageProxy DisplaySetting_e18(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e19(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_TEXTURE_POOL_SIZE <int>",
         "Set the hint for the size of the texture pool to manage.");
-static ApplicationUsageProxy DisplaySetting_e19(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e20(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_BUFFER_OBJECT_POOL_SIZE <int>",
         "Set the hint for the size of the vertex buffer object pool to manage.");
-static ApplicationUsageProxy DisplaySetting_e20(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e21(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_FBO_POOL_SIZE <int>",
         "Set the hint for the size of the frame buffer object pool to manage.");
-static ApplicationUsageProxy DisplaySetting_e21(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e22(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_IMPLICIT_BUFFER_ATTACHMENT_RENDER_MASK",
         "OFF | DEFAULT | [~]COLOR | [~]DEPTH | [~]STENCIL. Substitute missing buffer attachments for render FBO.");
-static ApplicationUsageProxy DisplaySetting_e22(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e23(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_IMPLICIT_BUFFER_ATTACHMENT_RESOLVE_MASK",
         "OFF | DEFAULT | [~]COLOR | [~]DEPTH | [~]STENCIL. Substitute missing buffer attachments for resolve FBO.");
-static ApplicationUsageProxy DisplaySetting_e23(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e24(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_GL_CONTEXT_VERSION <major.minor>",
         "Set the hint for the GL version to create contexts for.");
-static ApplicationUsageProxy DisplaySetting_e24(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e25(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_GL_CONTEXT_FLAGS <uint>",
         "Set the hint for the GL context flags to use when creating contexts.");
-static ApplicationUsageProxy DisplaySetting_e25(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e26(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_GL_CONTEXT_PROFILE_MASK <uint>",
         "Set the hint for the GL context profile mask to use when creating contexts.");
-static ApplicationUsageProxy DisplaySetting_e26(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+static ApplicationUsageProxy DisplaySetting_e27(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
         "OSG_SWAP_METHOD <method>",
         "DEFAULT | EXCHANGE | COPY | UNDEFINED. Select preferred swap method.");
+static ApplicationUsageProxy DisplaySetting_e28(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+        "OSG_KEYSTONE ON | OFF",
+        "Specify the hint to whether the viewer should set up keystone correction.");
+static ApplicationUsageProxy DisplaySetting_e29(ApplicationUsage::ENVIRONMENTAL_VARIABLE,
+        "OSG_KEYSTONE_FILES <filename>[:filename]..",
+        "Specify filenames of keystone parameter files. Under Windows use ; to deliminate files, otherwise use :");
 
 
 void DisplaySettings::readEnvironmentalVariables()
@@ -469,6 +509,19 @@ void DisplaySettings::readEnvironmentalVariables()
         }
     }
 
+    if( (ptr = getenv("OSG_USE_SCENEVIEW_FOR_STEREO")) != 0)
+    {
+        if (strcmp(ptr,"OFF")==0)
+        {
+            _useSceneViewForStereoHint = false;
+        }
+        else
+        if (strcmp(ptr,"ON")==0)
+        {
+            _useSceneViewForStereoHint = true;
+        }
+    }
+
     if( (ptr = getenv("OSG_NUM_DATABASE_THREADS")) != 0)
     {
         _numDatabaseThreadsHint = atoi(ptr);
@@ -566,6 +619,45 @@ void DisplaySettings::readEnvironmentalVariables()
         }
 
     }
+
+    if( (ptr = getenv("OSG_KEYSTONE")) != 0)
+    {
+        if (strcmp(ptr,"OFF")==0)
+        {
+            _keystoneHint = false;
+        }
+        else
+        if (strcmp(ptr,"ON")==0)
+        {
+            _keystoneHint = true;
+        }
+    }
+
+
+    if ((ptr = getenv("OSG_KEYSTONE_FILES")) != 0)
+    {
+    #if defined(WIN32) && !defined(__CYGWIN__)
+        char delimitor = ';';
+    #else
+        char delimitor = ':';
+    #endif
+
+        std::string paths(ptr);
+        if (!paths.empty())
+        {
+            std::string::size_type start = 0;
+            std::string::size_type end;
+            while ((end = paths.find_first_of(delimitor,start))!=std::string::npos)
+            {
+                _keystoneFileNames.push_back(std::string(paths,start,end-start));
+                start = end+1;
+            }
+
+            std::string lastPath(paths,start,std::string::npos);
+            if (!lastPath.empty())
+                _keystoneFileNames.push_back(lastPath);
+        }
+    }
 }
 
 void DisplaySettings::readCommandLine(ArgumentParser& arguments)
@@ -591,6 +683,9 @@ void DisplaySettings::readCommandLine(ArgumentParser& arguments)
         arguments.getApplicationUsage()->addCommandLineOption("--gl-flags <mask>","Set the hint of which GL flags projfile mask to use when creating graphics contexts.");
         arguments.getApplicationUsage()->addCommandLineOption("--gl-profile-mask <mask>","Set the hint of which GL context profile mask to use when creating graphics contexts.");
         arguments.getApplicationUsage()->addCommandLineOption("--swap-method <method>","DEFAULT | EXCHANGE | COPY | UNDEFINED. Select preferred swap method.");
+        arguments.getApplicationUsage()->addCommandLineOption("--keystone <filename>","Specify a keystone file to be used by the viewer for keystone correction.");
+        arguments.getApplicationUsage()->addCommandLineOption("--keystone-on","Set the keystone hint to true to tell the viewer to do keystone correction.");
+        arguments.getApplicationUsage()->addCommandLineOption("--keystone-off","Set the keystone hint to false.");
     }
 
     std::string str;
@@ -643,6 +738,29 @@ void DisplaySettings::readCommandLine(ArgumentParser& arguments)
     while(arguments.read("--samples",str))
     {
         _numMultiSamples = atoi(str.c_str());
+    }
+
+    if (arguments.read("--keystone",str))
+    {
+        _keystoneHint = true;
+
+        if (!_keystoneFileNames.empty()) _keystoneFileNames.clear();
+        _keystoneFileNames.push_back(str);
+
+        while(arguments.read("--keystone",str))
+        {
+            _keystoneFileNames.push_back(str);
+        }
+    }
+
+    if (arguments.read("--keystone-on"))
+    {
+        _keystoneHint = true;
+    }
+
+    if (arguments.read("--keystone-off"))
+    {
+        _keystoneHint = false;
     }
 
     while(arguments.read("--cc"))
@@ -707,4 +825,114 @@ void DisplaySettings::readCommandLine(ArgumentParser& arguments)
     }
 
 
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Helper funciotns for computing projection and view matrices of left and right eyes
+//
+osg::Matrixd DisplaySettings::computeLeftEyeProjectionImplementation(const osg::Matrixd& projection) const
+{
+    double iod = getEyeSeparation();
+    double sd = getScreenDistance();
+    double scale_x = 1.0;
+    double scale_y = 1.0;
+
+    if (getSplitStereoAutoAdjustAspectRatio())
+    {
+        switch(getStereoMode())
+        {
+            case(HORIZONTAL_SPLIT):
+                scale_x = 2.0;
+                break;
+            case(VERTICAL_SPLIT):
+                scale_y = 2.0;
+                break;
+            default:
+                break;
+        }
+    }
+
+    if (getDisplayType()==HEAD_MOUNTED_DISPLAY)
+    {
+        // head mounted display has the same projection matrix for left and right eyes.
+        return osg::Matrixd::scale(scale_x,scale_y,1.0) *
+               projection;
+    }
+    else
+    {
+        // all other display types assume working like a projected power wall
+        // need to shjear projection matrix to account for asymetric frustum due to eye offset.
+        return osg::Matrixd(1.0,0.0,0.0,0.0,
+                           0.0,1.0,0.0,0.0,
+                           iod/(2.0*sd),0.0,1.0,0.0,
+                           0.0,0.0,0.0,1.0) *
+               osg::Matrixd::scale(scale_x,scale_y,1.0) *
+               projection;
+    }
+}
+
+osg::Matrixd DisplaySettings::computeLeftEyeViewImplementation(const osg::Matrixd& view, double eyeSeperationScale) const
+{
+    double iod = getEyeSeparation();
+    double es = 0.5f*iod*eyeSeperationScale;
+
+    return view *
+           osg::Matrixd(1.0,0.0,0.0,0.0,
+                       0.0,1.0,0.0,0.0,
+                       0.0,0.0,1.0,0.0,
+                       es,0.0,0.0,1.0);
+}
+
+osg::Matrixd DisplaySettings::computeRightEyeProjectionImplementation(const osg::Matrixd& projection) const
+{
+    double iod = getEyeSeparation();
+    double sd = getScreenDistance();
+    double scale_x = 1.0;
+    double scale_y = 1.0;
+
+    if (getSplitStereoAutoAdjustAspectRatio())
+    {
+        switch(getStereoMode())
+        {
+            case(HORIZONTAL_SPLIT):
+                scale_x = 2.0;
+                break;
+            case(VERTICAL_SPLIT):
+                scale_y = 2.0;
+                break;
+            default:
+                break;
+        }
+    }
+
+    if (getDisplayType()==HEAD_MOUNTED_DISPLAY)
+    {
+        // head mounted display has the same projection matrix for left and right eyes.
+        return osg::Matrixd::scale(scale_x,scale_y,1.0) *
+               projection;
+    }
+    else
+    {
+        // all other display types assume working like a projected power wall
+        // need to shjear projection matrix to account for asymetric frustum due to eye offset.
+        return osg::Matrixd(1.0,0.0,0.0,0.0,
+                           0.0,1.0,0.0,0.0,
+                           -iod/(2.0*sd),0.0,1.0,0.0,
+                           0.0,0.0,0.0,1.0) *
+               osg::Matrixd::scale(scale_x,scale_y,1.0) *
+               projection;
+    }
+}
+
+osg::Matrixd DisplaySettings::computeRightEyeViewImplementation(const osg::Matrixd& view, double eyeSeperationScale) const
+{
+    double iod = getEyeSeparation();
+    double es = 0.5*iod*eyeSeperationScale;
+
+    return view *
+           osg::Matrixd(1.0,0.0,0.0,0.0,
+                       0.0,1.0,0.0,0.0,
+                       0.0,0.0,1.0,0.0,
+                       -es,0.0,0.0,1.0);
 }

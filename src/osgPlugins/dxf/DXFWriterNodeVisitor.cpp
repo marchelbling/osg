@@ -481,6 +481,12 @@ void DXFWriterNodeVisitor::processStateSet(osg::StateSet* ss)
     {
         if (pm->getMode(osg::PolygonMode::FRONT)==osg::PolygonMode::LINE) _writeTriangleAs3DFace = false;
     }
+    osg::Material * mat = dynamic_cast<osg::Material *>(ss->getAttribute(osg::StateAttribute::MATERIAL));
+    if (mat)
+    {
+      const osg::Vec4&  color = mat->getDiffuse(osg::Material::FRONT);
+      _layer._color = _acadColor.findColor(color.asABGR()>>8);
+    }
 }
 
 void DXFWriterNodeVisitor::processGeometry(osg::Geometry* geo, osg::Matrix& m)
@@ -490,17 +496,16 @@ void DXFWriterNodeVisitor::processGeometry(osg::Geometry* geo, osg::Matrix& m)
     // We only want to create a new layer for geometry with something to draw
     if (geo->getVertexArray() && geo->getVertexArray()->getNumElements() ) {
 
-        processStateSet(_currentStateSet.get());
-
         if ( _firstPass ) {
             // Must have unique layer names
             _layer._name = getLayerName( geo->getName().empty() ? geo->getParent(0)->getName() : geo->getName() );
             OSG_DEBUG << "adding Layer " << _layer._name  << std::endl;
 
             // if single colour include in header
-            if ( osg::Geometry::BIND_OVERALL == geo->getColorBinding() ) {
+            osg::Array::Binding colorBinding = osg::getBinding(geo->getColorArray());
+            if ( osg::Array::BIND_OVERALL == colorBinding ) {
                 _layer._color = _acadColor.findColor(getNodeRGB(geo)); // per layer color
-            } else if ( osg::Geometry::BIND_OFF== geo->getColorBinding() ) {
+            } else if ( osg::Array::BIND_OFF== colorBinding ) {
                 _layer._color = 0xff; // use white - or can we easily lookup in texture?
             } else {
                 _layer._color = 0;  // per point color
@@ -510,6 +515,9 @@ void DXFWriterNodeVisitor::processGeometry(osg::Geometry* geo, osg::Matrix& m)
         } else {
             _layer = _layers[_count++];
             OSG_DEBUG << "writing Layer " << _layer._name  << std::endl;
+
+            processStateSet(_currentStateSet.get());
+
             if ( geo->getNumPrimitiveSets() ) {
                 for(unsigned int i = 0; i < geo->getNumPrimitiveSets(); ++i)
                 {

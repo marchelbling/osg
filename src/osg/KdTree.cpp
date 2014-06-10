@@ -71,7 +71,7 @@ struct TriangleIndicesCollector
         const osg::Vec3& v2 = (*(_buildKdTree->_kdTree.getVertices()))[p2];
 
         // discard degenerate points
-        if (v0==v1 || v1==v2 || v1==v2)
+        if (v0==v1 || v1==v2 || v2==v0)
         {
             //OSG_NOTICE<<"Disgarding degenerate triangle"<<std::endl;
             return;
@@ -795,6 +795,7 @@ KdTreeBuilder::KdTreeBuilder():
 }
 
 KdTreeBuilder::KdTreeBuilder(const KdTreeBuilder& rhs):
+    osg::Referenced(true),
     osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN),
     _buildOptions(rhs._buildOptions),
     _kdTreePrototype(rhs._kdTreePrototype)

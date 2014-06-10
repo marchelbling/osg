@@ -222,7 +222,7 @@ public:
     // GWM July 2005 add test for triangle intersected by p1-p2.
     // return true for unused edge
 
-    const bool intersected(const unsigned int ip1,const unsigned int ip2,const osg::Vec2 p1 ,const osg::Vec2 p2,const int iedge, osg::Vec3Array *points) const
+    bool intersected(const unsigned int ip1,const unsigned int ip2,const osg::Vec2 p1 ,const osg::Vec2 p2,const int iedge, osg::Vec3Array *points) const
     {
         // return true if edge iedge of triangle is intersected by ip1,ip2
         Vertex_index ie1,ie2;
@@ -1269,6 +1269,11 @@ float DelaunayConstraint::windingNumber(const osg::Vec3 &testpoint) const
 }
 osg::DrawElementsUInt *DelaunayConstraint::makeDrawable()
 {
+    if (_interiorTris.empty())
+    {
+        return 0;
+    }
+
     // initialize index storage vector for internal triangles.
     std::vector<GLuint> pt_indices;
     pt_indices.reserve(_interiorTris.size() * 3);
@@ -1370,6 +1375,15 @@ void DelaunayConstraint::handleOverlaps(void)
     // draw a case to convince yourself!.
 
     tscx->retessellatePolygons(*this); // find all edges
+}
+
+DelaunayConstraint::~DelaunayConstraint()
+{
+    trilist::const_iterator ti;
+    for (ti=_interiorTris.begin(); ti!=_interiorTris.end(); ++ti)
+    {
+        delete[] *ti;
+    }
 }
 
 } // namespace osgutil

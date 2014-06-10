@@ -249,7 +249,17 @@ const char* invalidNames[] =
     "Vec3",
     "Plugin",
     "Get",
-    "LightSource"
+    "LightSource",
+    "SlideEventHandler",
+    "GraphicsContext*",
+    "Apple",
+    "GeometryNew",
+    "FrameBufferObject",
+    "Lua",
+    "VolumeTile",
+    "PushStackValueVisitor",
+    "RayIntersector",
+    "OpenSceneGraph-Data"
 };
 
 
@@ -261,6 +271,7 @@ struct TypoCorrection
 
 TypoCorrection typoCorrections[] =
 {
+    {"Cheaev",         "Chebaev"},
     {"Alaxandre",      "Alexandre"},
     {"Aderian",        "Adrian"},
     {"Adndre",         "Andre"},
@@ -270,6 +281,7 @@ TypoCorrection typoCorrections[] =
     {"AndrÃ©",         "André"},
     {"Antione",        "Antoine"},
     {"Antonoine",      "Antoine"},
+    {"Aurelein",       "Aurelien"},
     {"Atr",            "Art"},
     {"Baverage",       "Beverage"},
     {"Bistroviae",     "Bistrovic"},
@@ -315,6 +327,7 @@ TypoCorrection typoCorrections[] =
     {"Hertlien",       "Hertlein"},
     {"Hatwig",         "Hartwig"},
     {"Hauknes",        "Haukness"},
+    {"Hunber",        "Huber"},
     {"Hi",             "He"},
     {"Hooper",         "Hopper"},
     {"Inverson",       "Iverson"},
@@ -446,7 +459,16 @@ TypoCorrection typoCorrections[] =
     {"Eskland","Ekstrand"},
     {"Baeuerele","Baeuerle"},
     {"Bauerle","Baeuerle"},
-    {"Baeurele","Baeuerle"}
+    {"Baeurele","Baeuerle"},
+    {"Nillson","Nilsson"},
+    {"Bjorn","Björn"},
+    {"BjÃ¶rn","Björn"},
+    {"Stepan","Stephan"},
+    {"Kristoger","Kristofer"},
+    {"Blessing","Blissing"},
+    {"Dannahuer","Dannhauer"},
+    {"Chebeav", "Chebaev"},
+    {"Messershmidt","Messerschmidt"}
 };
 
 
@@ -460,17 +482,27 @@ struct NameCorrection
 
 NameCorrection nameCorrections[] =
 {
+    {"FrancoisTigeot","",
+     "Francois", "Tigeot"},
+    {"Juan","Manuel",
+     "Juan", "Manuel Alvarez"},
+    {"Jaap","Gas",
+     "Jaap", "Glas"},
     {"Philip","Lamp",
      "Philip", "Lamb"},
     {"Dimi","Christop",
      "Dimi", "Christopoulos"},
     {"Jorge","Ciges",
-     "Jorge", "Izquierdo"},
+     "Jorge", "Izquierdo Ciges"},
+    {"Jorge","Izquierdo",
+     "Jorge", "Izquierdo Ciges"},
     {"Rafa","Gata",
      "Rafa", "Gaitan"},
     {"Sukender","I",
      "Sukender", ""},
     {"Sukender","Here",
+     "Sukender", ""},
+    {"Sukender","Fix",
      "Sukender", ""},
     {"Ewe","Woessner",
      "Uwe", "Woessner"},
@@ -486,6 +518,8 @@ NameCorrection nameCorrections[] =
      "Thomas",         "Hogarth"},
     {"Marin",          "Lavery",
      "Martin",         "Lavery"},
+    {"Michael",        "Bach",
+     "Michael",        "Bach Jensen"},
     {"Nguyen",         "Van",
      "Nguyen",         "Van Truong"},
     {"Thom",           "Carlo",
@@ -574,6 +608,8 @@ NameCorrection nameCorrections[] =
      "Romano",         "José Magacho da Silva"},
     {"Rommano",        "Silva",
      "Romano",         "José Magacho da Silva"},
+    {"Romano",         "Magacho",
+     "Romano",         "José Magacho da Silva"},
     {"Leandro",        "Motta",
      "Leandro",        "Motta Barros"},
     {"Leandro",        "Motto",
@@ -599,7 +635,9 @@ NameCorrection nameCorrections[] =
     {"Tyge",           "",
      "Tyge",           "Løvset"},
     {"Ricard",         "Schmidt",
-     "Richard",        "Schmidt"}
+     "Richard",        "Schmidt"},
+    {"Matthias",       "Helsing",
+     "Mattias",        "Helsing"}
 };
 
 

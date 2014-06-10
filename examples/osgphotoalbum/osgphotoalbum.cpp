@@ -38,7 +38,7 @@ using namespace osg;
 
 // now register with Registry to instantiate the above reader/writer,
 // declaring in main so that the code to set up PagedLOD can get a handle
-// to the ImageReaderWriter's 
+// to the ImageReaderWriter's
 osgDB::RegisterReaderWriterProxy<ImageReaderWriter> g_ImageReaderWriter;
 
 class Album;
@@ -54,13 +54,13 @@ public:
         if (page.valid()) return page.release();
         else return 0;
     }
-    
+
     virtual void traverse(osg::NodeVisitor& nv);
 
     void setRotation(float angle)
     {
-        _rotation = angle; 
-        _targetRotation = angle; 
+        _rotation = angle;
+        _targetRotation = angle;
         dirtyBound();
     }
 
@@ -68,10 +68,10 @@ public:
 
     void rotateTo(float angle, float timeToRotateBy)
     {
-        _targetRotation = angle; 
+        _targetRotation = angle;
         _targetTime = timeToRotateBy;
     }
-    
+
     bool rotating() const { return _targetRotation!=_rotation; }
 
     void setPageVisible(bool frontVisible,bool backVisible)
@@ -86,7 +86,7 @@ public:
 
 public:
 
-    virtual bool computeLocalToWorldMatrix(osg::Matrix& matrix,osg::NodeVisitor*) const 
+    virtual bool computeLocalToWorldMatrix(osg::Matrix& matrix,osg::NodeVisitor*) const
     {
         if (_referenceFrame==RELATIVE_RF)
         {
@@ -119,7 +119,7 @@ public:
     osg::Matrix getInverseMatrix() const { return osg::Matrix::inverse(getMatrix()); }
 
 protected:
-    
+
     Page(Album* album, unsigned int pageNo, const std::string& frontFileName, const std::string& backFileName, float width, float height);
 
     float       _rotation;
@@ -141,19 +141,19 @@ public:
     Album(osg::ArgumentParser& ap, float width, float height);
 
     osg::Group* getScene() { return _group.get(); }
-    
+
     const osg::Group* getScene() const { return _group.get(); }
 
     osg::Matrix getPageOffset(unsigned int pageNo) const;
-    
+
     bool nextPage(float timeToRotateBy) { return gotoPage(_currentPageNo+1,timeToRotateBy); }
 
     bool previousPage(float timeToRotateBy) { return _currentPageNo>=1?gotoPage(_currentPageNo-1,timeToRotateBy):false; }
-    
+
     bool gotoPage(unsigned int pageNo, float timeToRotateBy);
-    
+
     osg::StateSet* getBackgroundStateSet() { return _backgroundStateSet.get(); }
-    
+
     void setVisibility();
 
 protected:
@@ -162,13 +162,13 @@ protected:
 
     osg::ref_ptr<osg::Group>    _group;
     PageList                    _pages;
-    
+
     osg::ref_ptr<osg::StateSet> _backgroundStateSet;
-    
+
     unsigned int                _currentPageNo;
     float                       _radiusOfRings;
     float                       _startAngleOfPages;
-    float                       _deltaAngleBetweenPages;   
+    float                       _deltaAngleBetweenPages;
 
 };
 
@@ -183,12 +183,12 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
     _targetRotation = 0;
     _targetTime = 0;
     _lastTimeTraverse = 0;
-    
+
     _pageOffset = album->getPageOffset(pageNo);
-    
+
     setNumChildrenRequiringUpdateTraversal(1);
-    
-    
+
+
     // set up subgraph
     osgDB::ReaderWriter* readerWriter = osgDB::Registry::instance()->getReaderWriterForExtension("gdal");
     if (!readerWriter)
@@ -200,7 +200,7 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
 
     ImageReaderWriter* rw = g_ImageReaderWriter.get();
 
-    
+
     // set up non visible page.
     osg::Group* non_visible_page = new osg::Group;
     _switch->addChild(non_visible_page);
@@ -208,54 +208,51 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
         osg::Geometry* geom = new osg::Geometry;
         geom->setStateSet(album->getBackgroundStateSet());
 
-        osg::Vec3Array* coords = new osg::Vec3Array(4);
-        (*coords)[0].set(0.0f,0.0,height);
-        (*coords)[1].set(0.0f,0.0,0);
-        (*coords)[2].set(width,0.0,0);
-        (*coords)[3].set(width,0.0,height);
+        osg::Vec3Array* coords = new osg::Vec3Array(8);
+        (*coords)[0].set(0.0f,0.0f,0.0f);
+        (*coords)[1].set(0.0f,0.0f,height);
+        (*coords)[2].set(0.0f,0.0f,height);
+        (*coords)[3].set(width,0.0f,height);
+        (*coords)[4].set(width,0.0f,height);
+        (*coords)[5].set(width,0.0f,0.0f);
+        (*coords)[6].set(width,0.0f,0.0f);
+        (*coords)[7].set(0.0f,0.0f,0.0f);
         geom->setVertexArray(coords);
-        
 
-        osg::Vec3Array* normals = new osg::Vec3Array(4);
+
+        osg::Vec3Array* normals = new osg::Vec3Array(8);
         (*normals)[0].set(-1.0f,0.0f,0.0f);
-        (*normals)[1].set(0.0f,0.0f,-1.0f);
-        (*normals)[2].set(1.0f,0.0f,0.0f);
-        (*normals)[3].set(0.0f,0.0f,1.0f);
-        geom->setNormalArray(normals);
-        geom->setNormalBinding(osg::Geometry::BIND_PER_PRIMITIVE);
+        (*normals)[1].set(-1.0f,0.0f,0.0f);
+        (*normals)[2].set(0.0f,0.0f,-1.0f);
+        (*normals)[3].set(0.0f,0.0f,-1.0f);
+        (*normals)[4].set(1.0f,0.0f,0.0f);
+        (*normals)[5].set(1.0f,0.0f,0.0f);
+        (*normals)[6].set(0.0f,0.0f,1.0f);
+        (*normals)[7].set(0.0f,0.0f,1.0f);
+        geom->setNormalArray(normals, osg::Array::BIND_PER_VERTEX);
 
-        osg::Vec2Array* tcoords = new osg::Vec2Array(4);
-        (*tcoords)[0].set(0.0f,1.0f);
-        (*tcoords)[1].set(0.0f,0.0f);
-        (*tcoords)[2].set(1.0f,0.0f);
+        osg::Vec2Array* tcoords = new osg::Vec2Array(8);
+        (*tcoords)[0].set(0.0f,0.0f);
+        (*tcoords)[1].set(0.0f,1.0f);
+        (*tcoords)[2].set(0.0f,1.0f);
         (*tcoords)[3].set(1.0f,1.0f);
+        (*tcoords)[4].set(1.0f,1.0f);
+        (*tcoords)[5].set(0.0f,1.0f);
+        (*tcoords)[6].set(0.0f,1.0f);
+        (*tcoords)[7].set(0.0f,0.0f);
         geom->setTexCoordArray(0,tcoords);
 
         osg::Vec4Array* colours = new osg::Vec4Array(1);
         (*colours)[0].set(1.0f,1.0f,1.0,1.0f);
-        geom->setColorArray(colours);
-        geom->setColorBinding(osg::Geometry::BIND_OVERALL);
-
-        osg::UByteArray* vindices = new osg::UByteArray(8);
-        (*vindices)[0]=0;
-        (*vindices)[1]=1;
-        (*vindices)[2]=1;
-        (*vindices)[3]=2;
-        (*vindices)[4]=2;
-        (*vindices)[5]=3;
-        (*vindices)[6]=3;
-        (*vindices)[7]=0;
-
-        geom->setVertexIndices(vindices);
-        geom->setTexCoordIndices(0,vindices);
+        geom->setColorArray(colours, osg::Array::BIND_OVERALL);
 
         geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINES,0,8));
 
         // set up the geode.
         osg::Geode* geode = new osg::Geode;
         geode->addDrawable(geom);
-        
-    
+
+
         non_visible_page->addChild(geode);
     }
 
@@ -278,8 +275,7 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
 
         osg::Vec3Array* normals = new osg::Vec3Array(1);
         (*normals)[0].set(0.0f,-1.0f,0.0f);
-        geom->setNormalArray(normals);
-        geom->setNormalBinding(osg::Geometry::BIND_OVERALL);
+        geom->setNormalArray(normals, osg::Array::BIND_OVERALL);
 
         osg::Vec2Array* tcoords = new osg::Vec2Array(4);
         (*tcoords)[0].set(0.0f,1.0f);
@@ -290,16 +286,15 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
 
         osg::Vec4Array* colours = new osg::Vec4Array(1);
         (*colours)[0].set(1.0f,1.0f,1.0,1.0f);
-        geom->setColorArray(colours);
-        geom->setColorBinding(osg::Geometry::BIND_OVERALL);
+        geom->setColorArray(colours, osg::Array::BIND_OVERALL);
 
         geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::QUADS,0,4));
 
         // set up the geode.
         osg::Geode* geode = new osg::Geode;
         geode->addDrawable(geom);
-        
-    
+
+
         front_page->addChild(geode);
     }
 
@@ -307,7 +302,7 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
     {
         float cut_off_distance = 8.0f;
         float max_visible_distance = 300.0f;
-        
+
         osg::Vec3 center(width*0.5f,0.0f,height*0.5f);
 
         osgText::Text* text = new osgText::Text;
@@ -321,15 +316,15 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
 
         osg::Geode* geode = new osg::Geode;
         geode->addDrawable(text);
-        
+
         osg::PagedLOD* pagedlod = new osg::PagedLOD;
         pagedlod->setCenter(center);
         pagedlod->setRadius(1.6f);
         pagedlod->setNumChildrenThatCannotBeExpired(2);
-        
+
         pagedlod->setRange(0,max_visible_distance,1e7);
         pagedlod->addChild(geode);
-        
+
         pagedlod->setRange(1,cut_off_distance,max_visible_distance);
         pagedlod->setFileName(1,rw->insertReference(frontFileName,256,width,height,false));
 
@@ -338,8 +333,8 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
 
         front_page->addChild(pagedlod);
     }
-     
-     
+
+
     // set up back of page.
     osg::Group* back_page = new osg::Group;
     _switch->addChild(back_page);
@@ -358,8 +353,7 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
 
         osg::Vec3Array* normals = new osg::Vec3Array(1);
         (*normals)[0].set(0.0f,1.0f,0.0f);
-        geom->setNormalArray(normals);
-        geom->setNormalBinding(osg::Geometry::BIND_OVERALL);
+        geom->setNormalArray(normals, osg::Array::BIND_OVERALL);
 
         osg::Vec2Array* tcoords = new osg::Vec2Array(4);
         (*tcoords)[0].set(1.0f,1.0f);
@@ -370,16 +364,15 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
 
         osg::Vec4Array* colours = new osg::Vec4Array(1);
         (*colours)[0].set(1.0f,1.0f,1.0,1.0f);
-        geom->setColorArray(colours);
-        geom->setColorBinding(osg::Geometry::BIND_OVERALL);
+        geom->setColorArray(colours, osg::Array::BIND_OVERALL);
 
         geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::QUADS,0,4));
 
         // set up the geode.
         osg::Geode* geode = new osg::Geode;
         geode->addDrawable(geom);
-        
-    
+
+
         back_page->addChild(geode);
     }
 
@@ -387,7 +380,7 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
     {
         float cut_off_distance = 8.0f;
         float max_visible_distance = 300.0f;
-        
+
         osg::Vec3 center(width*0.5f,0.0f,height*0.5f);
 
         osgText::Text* text = new osgText::Text;
@@ -401,15 +394,15 @@ Page::Page(Album* album, unsigned int pageNo, const std::string& frontFileName, 
 
         osg::Geode* geode = new osg::Geode;
         geode->addDrawable(text);
-        
+
         osg::PagedLOD* pagedlod = new osg::PagedLOD;
         pagedlod->setCenter(center);
         pagedlod->setRadius(1.6f);
         pagedlod->setNumChildrenThatCannotBeExpired(2);
-        
+
         pagedlod->setRange(0,max_visible_distance,1e7);
         pagedlod->addChild(geode);
-        
+
         pagedlod->setRange(1,cut_off_distance,max_visible_distance);
         pagedlod->setFileName(1,rw->insertReference(backFileName,256,width,height,true));
 
@@ -431,15 +424,15 @@ void Page::traverse(osg::NodeVisitor& nv)
         if (framestamp)
         {
             double t = framestamp->getSimulationTime();
-            
+
             if (_rotation!=_targetRotation)
             {
                 if (t>=_targetTime) _rotation = _targetRotation;
                 else _rotation += (_targetRotation-_rotation)*(t-_lastTimeTraverse)/(_targetTime-_lastTimeTraverse);
-                
+
                 dirtyBound();
             }
-            
+
             _lastTimeTraverse = t;
 
         }
@@ -459,7 +452,7 @@ Album::Album(osg::ArgumentParser& arguments, float width, float height)
 
     for(int pos=1;pos<arguments.argc();++pos)
     {
-        if (arguments.isString(pos)) 
+        if (arguments.isString(pos))
         {
             std::string filename(arguments[pos]);
             if (osgDB::getLowerCaseFileExtension(filename)=="album")
@@ -470,7 +463,7 @@ Album::Album(osg::ArgumentParser& arguments, float width, float height)
                     g_ImageReaderWriter.get()->addPhotoArchive(photoArchive);
                     photoArchive->getImageFileNameList(fileList);
                 }
-                
+
             }
             else
             {
@@ -478,17 +471,17 @@ Album::Album(osg::ArgumentParser& arguments, float width, float height)
             }
         }
     }
-    
+
     _radiusOfRings = 0.02;
     _startAngleOfPages = 0.0f;
     _deltaAngleBetweenPages = osg::PI/(float)fileList.size();
-    
+
     _group = new osg::Group;
     _group->getOrCreateStateSet()->setAttributeAndModes(new osg::CullFace,osg::StateAttribute::ON);
-    
+
     _backgroundStateSet = new osg::StateSet;
     _backgroundStateSet->setAttributeAndModes(new osg::PolygonOffset(1.0f,1.0f),osg::StateAttribute::ON);
-    
+
     // load the images.
     unsigned int i;
     for(i=0;i<fileList.size();i+=2)
@@ -502,7 +495,7 @@ Album::Album(osg::ArgumentParser& arguments, float width, float height)
             _group->addChild(page);
         }
     }
-    
+
     setVisibility();
 
 }
@@ -525,7 +518,7 @@ bool Album::gotoPage(unsigned int pageNo, float timeToRotateBy)
             _pages[i]->rotateTo(osg::PI,timeToRotateBy);
         }
         _currentPageNo = pageNo;
-        
+
         return true;
     }
     else if (pageNo<_currentPageNo)
@@ -535,10 +528,10 @@ bool Album::gotoPage(unsigned int pageNo, float timeToRotateBy)
             _pages[i]->rotateTo(0,timeToRotateBy);
         }
         _currentPageNo = pageNo;
-        
+
         return true;
     }
-    
+
     return false;
 }
 
@@ -555,10 +548,10 @@ void Album::setVisibility()
                             ((i+1)<_pages.size()?_pages[i+1]->rotating():false) ||
                             i==_currentPageNo-1 ||
                             i==_pages.size()-1;
-    
+
         _pages[i]->setPageVisible(front_visible,back_visible);
     }
-    
+
 }
 
 
@@ -570,13 +563,13 @@ class SlideEventHandler : public osgGA::GUIEventHandler
 public:
 
     SlideEventHandler();
-    
+
     META_Object(osgStereImageApp,SlideEventHandler);
 
     void set(Album* album, float timePerSlide, bool autoSteppingActive);
 
     virtual bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter&);
-    
+
     virtual void getUsage(osg::ApplicationUsage& usage) const;
 
 protected:
@@ -605,8 +598,8 @@ void SlideEventHandler::set(Album* album, float timePerSlide, bool autoSteppingA
     _album = album;
 
     _timePerSlide = timePerSlide;
-    _autoSteppingActive = autoSteppingActive;    
-    
+    _autoSteppingActive = autoSteppingActive;
+
 }
 
 bool SlideEventHandler::handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter&)
@@ -649,7 +642,7 @@ bool SlideEventHandler::handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIAction
                     _album->nextPage(ea.getTime()+1.0f);
                 }
             }
-            
+
             _album->setVisibility();
 
         }
@@ -672,7 +665,7 @@ int main( int argc, char **argv )
 
     // use an ArgumentParser object to manage the program arguments.
     osg::ArgumentParser arguments(&argc,argv);
-    
+
     // set up the usage document, in case we need to print out how to use this program.
     arguments.getApplicationUsage()->setDescription(arguments.getApplicationName()+" is the example which demonstrates use node masks to create stereo images.");
     arguments.getApplicationUsage()->setCommandLineUsage(arguments.getApplicationName()+" [options] image_file [image_file]");
@@ -680,11 +673,11 @@ int main( int argc, char **argv )
     arguments.getApplicationUsage()->addCommandLineOption("-a","Enter auto advance of image pairs on start up.");
     arguments.getApplicationUsage()->addCommandLineOption("-h or --help","Display this information");
     arguments.getApplicationUsage()->addCommandLineOption("--create <filename>","Create an photo archive of specified files");
-    
+
 
     // construct the viewer.
     osgViewer::Viewer viewer(arguments);
-    
+
     viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
     // register the handler to add keyboard and mouse handling.
@@ -707,7 +700,7 @@ int main( int argc, char **argv )
 
     std::string archiveName;
     while (arguments.read("--create",archiveName)) {}
-    
+
     // any option left unread are converted into errors to write out later.
     arguments.reportRemainingOptionsAsUnrecognized();
 
@@ -717,7 +710,7 @@ int main( int argc, char **argv )
         arguments.writeErrorMessages(std::cout);
         return 1;
     }
-    
+
     if (arguments.argc()<=1)
     {
         arguments.getApplicationUsage()->write(std::cout,osg::ApplicationUsage::COMMAND_LINE_OPTION);
@@ -733,9 +726,9 @@ int main( int argc, char **argv )
         {
             if (arguments.isString(i)) fileNameList.push_back(std::string(arguments[i]));
         }
-        
+
         PhotoArchive::buildArchive(archiveName,fileNameList);
-        
+
         return 0;
     }
 
@@ -747,7 +740,7 @@ int main( int argc, char **argv )
 
     fovy = osg::DegreesToRadians(fovy);
     double fovx = atan(tan(fovy*0.5)*aspectRatio)*2.0;
-    
+
     float radius = 1.0f;
     float width = 2*radius*tan(fovx*0.5f);
     float height = 2*radius*tan(fovy*0.5f);
@@ -756,7 +749,7 @@ int main( int argc, char **argv )
 
     // creat the scene from the file list.
     osg::ref_ptr<osg::Group> rootNode = album->getScene();
-    
+
     if (!rootNode) return 0;
 
 
@@ -767,9 +760,9 @@ int main( int argc, char **argv )
 
     // set up the SlideEventHandler.
     seh->set(album.get(),timeDelayBetweenSlides,autoSteppingActive);
-    
+
     viewer.realize();
-    
+
     // switch off the cursor
     osgViewer::Viewer::Windows windows;
     viewer.getWindows(windows);

@@ -155,14 +155,14 @@ struct JSONValue<std::string> : public JSONObject
 {
     std::string _value;
     JSONValue(const std::string& v) {
-        _value = json_escape(v);
+        _value = jsonEscape(v);
     }
     void write(std::ostream& str, WriteVisitor& visitor) {
         str << '"' << _value  << '"';
     }
 
     protected:
-        std::string json_escape(std::string const& input) {
+        std::string jsonEscape(std::string const& input) {
             std::string value = input;
             replace(value, std::string("\\"), std::string("\\\\"));
             replace(value, std::string("\""), std::string("\\\""));

@@ -39,13 +39,17 @@ Texture2DArray::Texture2DArray(const Texture2DArray& text,const CopyOp& copyop):
     // copy all images by iterating through all of them
     for (int i=0; i < text._textureDepth; i++)
     {
-        _images.push_back(copyop(text._images[i].get()));
+        setImage(i, copyop(text._images[i].get()));
         _modifiedCount.push_back(ImageModifiedCount());
     }
 }
 
 Texture2DArray::~Texture2DArray()
 {
+    for (int i=0; i<_textureDepth; ++i)
+    {
+        setImage(i, NULL);
+    }
 }
 
 int Texture2DArray::compare(const StateAttribute& sa) const
@@ -118,9 +122,19 @@ void Texture2DArray::setImage(unsigned int layer, Image* image)
         if (_images[i].valid() && _images[i]->requiresUpdateCall()) ++numImageRequireUpdateBefore;
     }
 
+    if (_images[layer].valid())
+    {
+        _images[layer]->removeClient(this);
+    }
+
     // set image
     _images[layer] = image;
-   _modifiedCount[layer].setAllElementsTo(0);
+    _modifiedCount[layer].setAllElementsTo(0);
+
+    if (_images[layer].valid())
+    {
+        _images[layer]->addClient(this);
+    }
 
     // find out if we need to reset the update callback to handle the animation of image
     unsigned numImageRequireUpdateAfter = 0;
@@ -235,7 +249,7 @@ void Texture2DArray::apply(State& state) const
             // compute the dimensions of the texture.
             computeRequiredTextureDimensions(state, *image, new_width, new_height, new_numMipmapLevels);
 
-            if (!textureObject->match(GL_TEXTURE_2D_ARRAY_EXT, new_numMipmapLevels, _internalFormat, new_width, new_height, 1, _borderWidth))
+            if (!textureObject->match(GL_TEXTURE_2D_ARRAY_EXT, new_numMipmapLevels, _internalFormat, new_width, new_height, _textureDepth, _borderWidth))
             {
                 Texture::releaseTextureObject(contextID, _textureObjectBuffer[contextID].get());
                 _textureObjectBuffer[contextID] = 0;

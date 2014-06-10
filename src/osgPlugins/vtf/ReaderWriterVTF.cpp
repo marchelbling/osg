@@ -171,7 +171,7 @@ bool ConvertImageFormat(unsigned int vtfFormat, int& internalFormat,
     supported = true;
 
     // Decode the format
-    switch (vtfFormat)
+    switch (static_cast<int>(vtfFormat))
     {
         case VTF_FORMAT_DEFAULT:
             supported = false;
@@ -324,7 +324,7 @@ bool ConvertImageFormat(unsigned int vtfFormat, int& internalFormat,
         case VTF_FORMAT_RGBA16161616F:
             internalFormat = GL_RGBA;
             pixelFormat = GL_RGBA;
-            dataType = GL_HALF_FLOAT_NV;
+            dataType = GL_HALF_FLOAT;
             break;
 
         case VTF_FORMAT_RGBA16161616:

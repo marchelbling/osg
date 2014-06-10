@@ -12,7 +12,7 @@
 */
 
 #include <osgQt/QWidgetImage>
-#include <QtGui/QLayout>
+#include <QLayout>
 
 namespace osgQt
 {
@@ -43,7 +43,7 @@ void QWidgetImage::render()
     _adapter->render();
 }
 
-void QWidgetImage::scaleImage(int s,int t,int r, GLenum newDataType)
+void QWidgetImage::scaleImage(int s,int t,int /*r*/, GLenum /*newDataType*/)
 {
     _adapter->resize(s, t);
 }

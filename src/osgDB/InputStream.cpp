@@ -32,9 +32,22 @@ InputStream::InputStream( const osgDB::Options* options )
     if ( !options ) return;
     _options = options;
 
-    std::string schema;
     if ( options->getPluginStringData("ForceReadingImage")=="true" )
         _forceReadingImage = true;
+
+    if ( !options->getPluginStringData("CustomDomains").empty() )
+    {
+        StringList domains, keyAndValue;
+        split( options->getPluginStringData("CustomDomains"), domains, ';' );
+        for ( unsigned int i=0; i<domains.size(); ++i )
+        {
+            split( domains[i], keyAndValue, ':' );
+            if ( keyAndValue.size()>1 )
+                _domainVersionMap[keyAndValue.front()] = atoi(keyAndValue.back().c_str());
+        }
+    }
+
+    std::string schema;
     if ( !options->getPluginStringData("SchemaFile").empty() )
     {
         schema = options->getPluginStringData("SchemaFile");
@@ -60,6 +73,13 @@ InputStream::~InputStream()
         delete _dataDecompress;
 }
 
+int InputStream::getFileVersion( const std::string& d ) const
+{
+    if ( d.empty() ) return _fileVersion;
+    VersionMap::const_iterator itr = _domainVersionMap.find(d);
+    return itr==_domainVersionMap.end() ? 0 : itr->second;
+}
+
 InputStream& InputStream::operator>>( osg::Vec2b& v )
 {
     char x, y; *this >> x >> y;
@@ -81,9 +101,23 @@ InputStream& InputStream::operator>>( osg::Vec4b& v )
     return *this;
 }
 
+InputStream& InputStream::operator>>( osg::Vec2ub& v )
+{
+    unsigned char x, y; *this >> x >> y;
+    v.set( x, y );
+    return *this;
+}
+
+InputStream& InputStream::operator>>( osg::Vec3ub& v )
+{
+    unsigned char x, y, z; *this >> x >> y >> z;
+    v.set( x, y, z );
+    return *this;
+}
+
 InputStream& InputStream::operator>>( osg::Vec4ub& v )
 {
-    char r, g, b, a; *this >> r >> g >> b >> a;
+    unsigned char r, g, b, a; *this >> r >> g >> b >> a;
     v.set( r, g, b, a );
     return *this;
 }
@@ -97,6 +131,36 @@ InputStream& InputStream::operator>>( osg::Vec3s& v )
 InputStream& InputStream::operator>>( osg::Vec4s& v )
 { *this >> v.x() >> v.y() >> v.z() >> v.w(); return *this; }
 
+InputStream& InputStream::operator>>( osg::Vec2us& v )
+{ *this >> v.x() >> v.y(); return *this; }
+
+InputStream& InputStream::operator>>( osg::Vec3us& v )
+{ *this >> v.x() >> v.y() >> v.z(); return *this; }
+
+InputStream& InputStream::operator>>( osg::Vec4us& v )
+{ *this >> v.x() >> v.y() >> v.z() >> v.w(); return *this; }
+
+
+InputStream& InputStream::operator>>( osg::Vec2i& v )
+{ *this >> v.x() >> v.y(); return *this; }
+
+InputStream& InputStream::operator>>( osg::Vec3i& v )
+{ *this >> v.x() >> v.y() >> v.z(); return *this; }
+
+InputStream& InputStream::operator>>( osg::Vec4i& v )
+{ *this >> v.x() >> v.y() >> v.z() >> v.w(); return *this; }
+
+
+InputStream& InputStream::operator>>( osg::Vec2ui& v )
+{ *this >> v.x() >> v.y(); return *this; }
+
+InputStream& InputStream::operator>>( osg::Vec3ui& v )
+{ *this >> v.x() >> v.y() >> v.z(); return *this; }
+
+InputStream& InputStream::operator>>( osg::Vec4ui& v )
+{ *this >> v.x() >> v.y() >> v.z() >> v.w(); return *this; }
+
+
 InputStream& InputStream::operator>>( osg::Vec2f& v )
 { *this >> v.x() >> v.y(); return *this; }
 
@@ -106,6 +170,7 @@ InputStream& InputStream::operator>>( osg::Vec3f& v )
 InputStream& InputStream::operator>>( osg::Vec4f& v )
 { *this >> v.x() >> v.y() >> v.z() >> v.w(); return *this; }
 
+
 InputStream& InputStream::operator>>( osg::Vec2d& v )
 { *this >> v.x() >> v.y(); return *this; }
 
@@ -114,6 +179,7 @@ InputStream& InputStream::operator>>( osg::Vec3d& v )
 
 InputStream& InputStream::operator>>( osg::Vec4d& v )
 { *this >> v.x() >> v.y() >> v.z() >> v.w(); return *this; }
+
 
 InputStream& InputStream::operator>>( osg::Quat& q )
 { *this >> q.x() >> q.y() >> q.z() >> q.w(); return *this; }
@@ -317,6 +383,20 @@ osg::Array* InputStream::readArray()
             array = va;
         }
         break;
+    case ID_VEC2UB_ARRAY:
+        {
+            osg::Vec2ubArray* va = new osg::Vec2ubArray;
+            readArrayImplementation( va, 2, CHAR_SIZE );
+            array = va;
+        }
+        break;
+    case ID_VEC3UB_ARRAY:
+        {
+            osg::Vec3ubArray* va = new osg::Vec3ubArray;
+            readArrayImplementation( va, 3, CHAR_SIZE );
+            array = va;
+        }
+        break;
     case ID_VEC4UB_ARRAY:
         {
             osg::Vec4ubArray* va = new osg::Vec4ubArray;
@@ -341,6 +421,27 @@ osg::Array* InputStream::readArray()
     case ID_VEC4S_ARRAY:
         {
             osg::Vec4sArray* va = new osg::Vec4sArray;
+            readArrayImplementation( va, 4, SHORT_SIZE );
+            array = va;
+        }
+        break;
+    case ID_VEC2US_ARRAY:
+        {
+            osg::Vec2usArray* va = new osg::Vec2usArray;
+            readArrayImplementation( va, 2, SHORT_SIZE );
+            array = va;
+        }
+        break;
+    case ID_VEC3US_ARRAY:
+        {
+            osg::Vec3usArray* va = new osg::Vec3usArray;
+            readArrayImplementation( va, 3, SHORT_SIZE );
+            array = va;
+        }
+        break;
+    case ID_VEC4US_ARRAY:
+        {
+            osg::Vec4usArray* va = new osg::Vec4usArray;
             readArrayImplementation( va, 4, SHORT_SIZE );
             array = va;
         }
@@ -403,7 +504,12 @@ osg::PrimitiveSet* InputStream::readPrimitiveSet()
 
     DEF_MAPPEE(PrimitiveType, type);
     DEF_MAPPEE(PrimitiveType, mode);
+    unsigned int numInstances = 0u;
     *this >> type >> mode;
+    if ( _fileVersion>96 )
+    {
+        *this >> numInstances;
+    }
 
     switch ( type.get() )
     {
@@ -413,6 +519,7 @@ osg::PrimitiveSet* InputStream::readPrimitiveSet()
             *this >> first >> count;
             osg::DrawArrays* da = new osg::DrawArrays( mode.get(), first, count );
             primitive = da;
+            primitive->setNumInstances( numInstances );
         }
         break;
     case ID_DRAWARRAY_LENGTH:
@@ -427,6 +534,7 @@ osg::PrimitiveSet* InputStream::readPrimitiveSet()
             }
             *this >> END_BRACKET;
             primitive = dl;
+            primitive->setNumInstances( numInstances );
         }
         break;
     case ID_DRAWELEMENTS_UBYTE:
@@ -441,6 +549,7 @@ osg::PrimitiveSet* InputStream::readPrimitiveSet()
             }
             *this >> END_BRACKET;
             primitive = de;
+            primitive->setNumInstances( numInstances );
         }
         break;
     case ID_DRAWELEMENTS_USHORT:
@@ -455,6 +564,7 @@ osg::PrimitiveSet* InputStream::readPrimitiveSet()
             }
             *this >> END_BRACKET;
             primitive = de;
+            primitive->setNumInstances( numInstances );
         }
         break;
     case ID_DRAWELEMENTS_UINT:
@@ -469,6 +579,7 @@ osg::PrimitiveSet* InputStream::readPrimitiveSet()
             }
             *this >> END_BRACKET;
             primitive = de;
+            primitive->setNumInstances( numInstances );
         }
         break;
     default:
@@ -481,10 +592,11 @@ osg::PrimitiveSet* InputStream::readPrimitiveSet()
 
 osg::Image* InputStream::readImage(bool readFromExternal)
 {
+    std::string className = "osg::Image";
+    if ( _fileVersion>94 )  // ClassName property is only supported in 3.1.4 and higher
+        *this >> PROPERTY("ClassName") >> className;
 
-    std::string className="osg::Image";
     unsigned int id = 0;
-
     *this >> PROPERTY("UniqueID") >> id;
     if ( getException() ) return NULL;
 
@@ -501,14 +613,11 @@ osg::Image* InputStream::readImage(bool readFromExternal)
     if ( getException() ) return NULL;
 
     osg::ref_ptr<osg::Image> image = NULL;
-
     switch ( decision )
     {
     case IMAGE_INLINE_DATA:
         if ( isBinary() )
         {
-            image = new osg::Image;
-
             // _origin, _s & _t & _r, _internalTextureFormat
             int origin, s, t, r, internalFormat;
             *this >> origin >> s >> t >> r >> internalFormat;
@@ -527,9 +636,10 @@ osg::Image* InputStream::readImage(bool readFromExternal)
                 if ( getException() ) return NULL;
 
                 readCharArray( data, size );
+                image = new osg::Image;
                 image->setOrigin( (osg::Image::Origin)origin );
                 image->setImage( s, t, r, internalFormat, pixelFormat, dataType,
-                    (unsigned char*)data, (osg::Image::AllocationMode)mode, packing );
+                    (unsigned char*)data, osg::Image::USE_NEW_DELETE, packing );
             }
 
             // _mipmapData
@@ -539,7 +649,7 @@ osg::Image* InputStream::readImage(bool readFromExternal)
             {
                 *this >> levels[i];
             }
-            if ( levelSize>0 )
+            if ( image && levelSize>0 )
                 image->setMipmapLevels( levels );
             readFromExternal = false;
         }
@@ -591,20 +701,19 @@ osg::Image* InputStream::readImage(bool readFromExternal)
         break;
     }
 
-    if ( readFromExternal )
+    if ( readFromExternal && !name.empty() )
     {
         image = osgDB::readImageFile( name, getOptions() );
         if ( !image && _forceReadingImage ) image = new osg::Image;
     }
+
+    image = static_cast<osg::Image*>( readObjectFields(className, id, image.get()) );
     if ( image.valid() )
     {
         image->setFileName( name );
         image->setWriteHint( (osg::Image::WriteHint)writeHint );
     }
-
-    image = static_cast<osg::Image*>( readObjectFields(className, id, image.get()) );
-
-   return image.release();
+    return image.release();
 }
 
 osg::Object* InputStream::readObject( osg::Object* existingObj )
@@ -637,7 +746,6 @@ osg::Object* InputStream::readObjectFields( const std::string& className, unsign
                                << className << std::endl;
         return NULL;
     }
-    _fields.push_back( className );
 
     osg::ref_ptr<osg::Object> obj = existingObj ? existingObj : wrapper->getProto()->cloneType();
     _identifierMap[id] = obj;
@@ -654,14 +762,12 @@ osg::Object* InputStream::readObjectFields( const std::string& className, unsign
                 continue;
             }
             _fields.push_back( assocWrapper->getName() );
-
             assocWrapper->read( *this, *obj );
             if ( getException() ) return NULL;
 
             _fields.pop_back();
         }
     }
-    _fields.pop_back();
     return obj.release();
 }
 
@@ -704,7 +810,20 @@ InputStream::ReadType InputStream::start( InputIterator* inIterator )
         type = static_cast<ReadType>(typeValue);
 
         unsigned int attributes; *this >> attributes;
+        if ( attributes&0x4 ) inIterator->setSupportBinaryBrackets( true );
         if ( attributes&0x2 ) _useSchemaData = true;
+
+        // Record custom domains
+        if ( attributes&0x1 )
+        {
+            unsigned int numDomains; *this >> numDomains;
+            for ( unsigned int i=0; i<numDomains; ++i )
+            {
+                std::string domainName; *this >> domainName;
+                int domainVersion; *this >> domainVersion;
+                _domainVersionMap[domainName] = domainVersion;
+            }
+        }
     }
     if ( !isBinary() )
     {
@@ -716,6 +835,13 @@ InputStream::ReadType InputStream::start( InputIterator* inIterator )
         std::string osgName, osgVersion;
         *this >> PROPERTY("#Version") >> version;
         *this >> PROPERTY("#Generator") >> osgName >> osgVersion;
+
+        while ( matchString("#CustomDomain") )
+        {
+            std::string domainName; *this >> domainName;
+            int domainVersion; *this >> domainVersion;
+            _domainVersionMap[domainName] = domainVersion;
+        }
     }
 
     // Record file version for back-compatibility checking of wrappers

@@ -94,17 +94,19 @@ Node *makeTerrain( void )
     Vec3Array& v    = *(new Vec3Array(m*n));
     Vec2Array& t    = *(new Vec2Array(m*n));
     Vec4Array& col  = *(new Vec4Array(1));
-    
+
     col[0][0] = col[0][1] = col[0][2] = col[0][3] = 1.0f;
 
     for( i = 0; i < m * n; i++ )
     {
-        v[i][0] = vertex[i][0] - dbcenter[0];
-        v[i][1] = vertex[i][1] - dbcenter[1];
-        v[i][2] = vertex[i][2];
+        float* vc = vertex[i];
+        v[i][0] = vc[0] - dbcenter[0];
+        v[i][1] = vc[1] - dbcenter[1];
+        v[i][2] = vc[2];
 
-        t[i][0] = texcoord[i][0] + 0.025;
-        t[i][1] = texcoord[i][1];
+        float* tc = texcoord[i];
+        t[i][0] = tc[0];
+        t[i][1] = tc[1];
     }
 
     Geometry *geom = new Geometry;
@@ -112,8 +114,7 @@ Node *makeTerrain( void )
     geom->setVertexArray( &v );
     geom->setTexCoordArray( 0, &t );
 
-    geom->setColorArray( &col );
-    geom->setColorBinding( Geometry::BIND_OVERALL );
+    geom->setColorArray( &col, Array::BIND_OVERALL );
 
     for( i = 0; i < m-2; i++ )
     {

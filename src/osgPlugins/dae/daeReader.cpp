@@ -19,8 +19,7 @@
 #include <dom/domInstanceWithExtra.h>
 #include <dom/domProfile_COMMON.h>
 #include <dom/domConstants.h>
-#include "dae/daeStandardURIResolver.h"
-
+#include <osg/ValueObject>
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
 #include <osg/UserDataContainer>
@@ -1563,7 +1562,10 @@ osg::Node* daeReader::processNode( domNode *node, bool skeleton)
     {
         std::string name = "";
         if (node->getId())
+        {
             name = node->getId();
+            resultNode->setUserValue("dae_node_id", name);
+        }
         if (node->getName())
             name = node->getName();
         resultNode->setName( name );

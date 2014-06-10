@@ -62,6 +62,7 @@ public:
          bool enableWireframe;
          bool useExternalBinaryArray;
          bool mergeAllBinaryFiles;
+         bool inlineImages;
 
          OptionsStruct() {
              generateTangentSpace = false;
@@ -74,6 +75,7 @@ public:
              enableWireframe = false;
              useExternalBinaryArray = false;
              mergeAllBinaryFiles = false;
+             inlineImages = false;
          }
     };
 
@@ -92,6 +94,7 @@ public:
         supportsOption("enableWireframe","create a wireframe geometry for each triangles geometry");
         supportsOption("useExternalBinaryArray","create binary files for vertex arrays");
         supportsOption("mergeAllBinaryFiles","merge all binary files into one to avoid multi request on a server");
+        supportsOption("inlineImages","insert base64 encoded images instead of referring to them");
     }
 
     virtual const char* className() const { return "OSGJS json Writer"; }
@@ -170,6 +173,7 @@ public:
             writer.setBaseName(basename);
             writer.useExternalBinaryArray(options.useExternalBinaryArray);
             writer.mergeAllBinaryFiles(options.mergeAllBinaryFiles);
+            writer.inlineImages(options.inlineImages);
             writer.setMaxTextureDimension(options.resizeTextureUpToPowerOf2);
             model->accept(writer);
             if (writer._root.valid()) {
@@ -236,6 +240,11 @@ public:
                 if (pre_equals == "mergeAllBinaryFiles")
                 {
                     localOptions.mergeAllBinaryFiles = true;
+                }
+
+                if (pre_equals == "inlineImages")
+                {
+                    localOptions.inlineImages = true;
                 }
 
                 if (post_equals.length() > 0)

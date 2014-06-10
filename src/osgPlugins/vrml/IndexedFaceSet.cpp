@@ -15,7 +15,7 @@
 
 osg::ref_ptr<osg::Geometry> ReaderWriterVRML2::convertVRML97IndexedFaceSet(openvrml::node *vrml_ifs) const
 {
-    osg::ref_ptr<osg::Geometry> osg_geom = new osg::Geometry();
+    osg::ref_ptr<deprecated_osg::Geometry> osg_geom = new deprecated_osg::Geometry();
 
     osg_geom->addPrimitiveSet(new osg::DrawArrayLengths(osg::PrimitiveSet::POLYGON));
 
@@ -108,7 +108,7 @@ osg::ref_ptr<osg::Geometry> ReaderWriterVRML2::convertVRML97IndexedFaceSet(openv
                 osg_geom->setTexCoordIndices(0, osg_tex_coord_index.get());
             } else
                 // no indices defined, use coordIndex
-                osg_geom->setTexCoordIndices(0, osg_geom->getVertexIndices());
+                osg_geom->setTexCoordIndices(0, const_cast<osg::IndexArray*>(osg_geom->getVertexIndices()));
         }
     }
 
@@ -152,7 +152,7 @@ osg::ref_ptr<osg::Geometry> ReaderWriterVRML2::convertVRML97IndexedFaceSet(openv
             }
             else
                 // unspecified, use the coordIndex field
-                osg_geom->setNormalIndices(osg_geom->getVertexIndices());
+                osg_geom->setNormalIndices(const_cast<osg::IndexArray*>(osg_geom->getVertexIndices()));
 
             // get normal binding
             std::auto_ptr<openvrml::field_value> fv3 = vrml_ifs->field("normalPerVertex");
@@ -160,10 +160,10 @@ osg::ref_ptr<osg::Geometry> ReaderWriterVRML2::convertVRML97IndexedFaceSet(openv
 
             if (vrml_norm_per_vertex->value())
             {
-                osg_geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+                osg_geom->setNormalBinding(deprecated_osg::Geometry::BIND_PER_VERTEX);
             } else
             {
-                osg_geom->setNormalBinding(osg::Geometry::BIND_PER_PRIMITIVE);
+                osg_geom->setNormalBinding(deprecated_osg::Geometry::BIND_PER_PRIMITIVE);
             }
         }
     }
@@ -206,7 +206,7 @@ osg::ref_ptr<osg::Geometry> ReaderWriterVRML2::convertVRML97IndexedFaceSet(openv
                 osg_geom->setColorIndices(osg_color_index.get());
             } else
                 // unspecified, use coordIndices field
-                osg_geom->setColorIndices(osg_geom->getVertexIndices());
+                osg_geom->setColorIndices(const_cast<osg::IndexArray*>(osg_geom->getVertexIndices()));
 
             // get color binding
             std::auto_ptr<openvrml::field_value> fv3 = vrml_ifs->field("colorPerVertex");
@@ -214,10 +214,10 @@ osg::ref_ptr<osg::Geometry> ReaderWriterVRML2::convertVRML97IndexedFaceSet(openv
 
             if (vrml_color_per_vertex->value())
             {
-                osg_geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+                osg_geom->setColorBinding(deprecated_osg::Geometry::BIND_PER_VERTEX);
             } else
             {
-                osg_geom->setColorBinding(osg::Geometry::BIND_PER_PRIMITIVE);
+                osg_geom->setColorBinding(deprecated_osg::Geometry::BIND_PER_PRIMITIVE);
             }
         }
     }
@@ -250,7 +250,7 @@ osg::ref_ptr<osg::Geometry> ReaderWriterVRML2::convertVRML97IndexedFaceSet(openv
         }
 
 
-        osg::IntArray& indices = *static_cast<osg::IntArray*>(osg_geom->getVertexIndices());
+        const osg::IntArray& indices = *static_cast<const osg::IntArray*>(osg_geom->getVertexIndices());
         osg::DrawArrayLengths& lengths = *static_cast<osg::DrawArrayLengths*>(osg_geom->getPrimitiveSet(0));
         unsigned index = 0;
 
@@ -280,8 +280,8 @@ osg::ref_ptr<osg::Geometry> ReaderWriterVRML2::convertVRML97IndexedFaceSet(openv
         }
 
         osg_geom->setNormalArray(normals);
-        osg_geom->setNormalIndices(osg_geom->getVertexIndices());
-        osg_geom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        osg_geom->setNormalIndices(const_cast<osg::IndexArray*>(osg_geom->getVertexIndices()));
+        osg_geom->setNormalBinding(deprecated_osg::Geometry::BIND_PER_VERTEX);
 
 #endif
     }

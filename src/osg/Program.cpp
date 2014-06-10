@@ -137,7 +137,7 @@ void Program::ProgramBinary::assign(unsigned int size, const unsigned char* data
 Program::Program() :
     _geometryVerticesOut(1), _geometryInputType(GL_TRIANGLES),
     _geometryOutputType(GL_TRIANGLE_STRIP),
-    _patchVertices(3)
+    _numGroupsX(0), _numGroupsY(0), _numGroupsZ(0)
 {
 }
 
@@ -166,7 +166,9 @@ Program::Program(const Program& rhs, const osg::CopyOp& copyop):
     _geometryInputType = rhs._geometryInputType;
     _geometryOutputType = rhs._geometryOutputType;
 
-    _patchVertices = rhs._patchVertices;
+    _numGroupsX = rhs._numGroupsX;
+    _numGroupsY = rhs._numGroupsY;
+    _numGroupsZ = rhs._numGroupsZ;
 }
 
 
@@ -201,8 +203,14 @@ int Program::compare(const osg::StateAttribute& sa) const
     if( _geometryOutputType < rhs._geometryOutputType ) return -1;
     if( rhs._geometryOutputType < _geometryOutputType ) return 1;
 
-    if( _patchVertices < rhs._patchVertices ) return -1;
-    if( rhs._patchVertices < _patchVertices ) return 1;
+    if( _numGroupsX < rhs._numGroupsX ) return -1;
+    if( rhs._numGroupsX < _numGroupsX ) return 1;
+
+    if( _numGroupsY < rhs._numGroupsY ) return -1;
+    if( rhs._numGroupsY < _numGroupsY ) return 1;
+
+    if( _numGroupsZ < rhs._numGroupsZ ) return -1;
+    if( rhs._numGroupsZ < _numGroupsZ ) return 1;
 
     ShaderList::const_iterator litr=_shaderList.begin();
     ShaderList::const_iterator ritr=rhs._shaderList.begin();
@@ -346,42 +354,12 @@ void Program::setParameter( GLenum pname, GLint value )
             //dirtyProgram();    // needed?
             break;
         case GL_PATCH_VERTICES:
-            _patchVertices = value;
-            dirtyProgram();
+            OSG_WARN << "Program::setParameter invalid param " << GL_PATCH_VERTICES << ", use osg::PatchParameter when setting GL_PATCH_VERTICES."<<std::endl;
             break;
         default:
-            OSG_WARN << "setParameter invalid param " << pname << std::endl;
+            OSG_WARN << "Program::setParameter invalid param " << pname << std::endl;
             break;
     }
-}
-
-void Program::setParameterfv( GLenum pname, const GLfloat* /*value*/ )
-{
-    switch( pname )
-    {
-      // todo tessellation default level
-        case GL_PATCH_DEFAULT_INNER_LEVEL:
-            break;
-        case GL_PATCH_DEFAULT_OUTER_LEVEL:
-            break;
-        default:
-            OSG_WARN << "setParameter invalid param " << pname << std::endl;
-            break;
-    }
-}
-
-const GLfloat* Program::getParameterfv( GLenum pname ) const
-{
-    /*switch( pname )
-    {
-      ;
-      // todo tessellation default level
-      //        case GL_PATCH_DEFAULT_INNER_LEVEL: return _patchDefaultInnerLevel;
-      //        case GL_PATCH_DEFAULT_OUTER_LEVEL: return _patchDefaultOuterLevel;
-
-    }*/
-    OSG_WARN << "getParameter invalid param " << pname << std::endl;
-    return 0;
 }
 
 GLint Program::getParameter( GLenum pname ) const
@@ -391,12 +369,24 @@ GLint Program::getParameter( GLenum pname ) const
         case GL_GEOMETRY_VERTICES_OUT_EXT: return _geometryVerticesOut;
         case GL_GEOMETRY_INPUT_TYPE_EXT:   return _geometryInputType;
         case GL_GEOMETRY_OUTPUT_TYPE_EXT:  return _geometryOutputType;
-        case GL_PATCH_VERTICES:            return _patchVertices;
     }
     OSG_WARN << "getParameter invalid param " << pname << std::endl;
     return 0;
 }
 
+void Program::setComputeGroups( GLint numGroupsX, GLint numGroupsY, GLint numGroupsZ )
+{
+    _numGroupsX = numGroupsX;
+    _numGroupsY = numGroupsY;
+    _numGroupsZ = numGroupsZ;
+}
+
+void Program::getComputeGroups( GLint& numGroupsX, GLint& numGroupsY, GLint& numGroupsZ ) const
+{
+    numGroupsX = _numGroupsX;
+    numGroupsY = _numGroupsY;
+    numGroupsZ = _numGroupsZ;
+}
 
 void Program::addBindAttribLocation( const std::string& name, GLuint index )
 {
@@ -523,20 +513,29 @@ const Program::UniformBlockMap& Program::getUniformBlocks(unsigned contextID) co
 // PCP is an OSG abstraction of the per-context glProgram
 ///////////////////////////////////////////////////////////////////////////
 
-Program::PerContextProgram::PerContextProgram(const Program* program, unsigned int contextID ) :
+Program::PerContextProgram::PerContextProgram(const Program* program, unsigned int contextID, GLuint programHandle ) :
         osg::Referenced(),
+        _glProgramHandle(programHandle),
         _loadedBinary(false),
-        _contextID( contextID )
+        _contextID( contextID ),
+        _ownsProgramHandle(false)
 {
     _program = program;
     _extensions = GL2Extensions::Get( _contextID, true );
-    _glProgramHandle = _extensions->glCreateProgram();
+    if (_glProgramHandle == 0)
+    {
+        _glProgramHandle = _extensions->glCreateProgram();
+        _ownsProgramHandle = true;
+    }
     requestLink();
 }
 
 Program::PerContextProgram::~PerContextProgram()
 {
-    Program::deleteGlProgram( _contextID, _glProgramHandle );
+    if (_ownsProgramHandle)
+    {
+        Program::deleteGlProgram( _contextID, _glProgramHandle );
+    }
 }
 
 
@@ -576,12 +575,6 @@ void Program::PerContextProgram::linkProgram(osg::State& state)
             _extensions->glProgramParameteri( _glProgramHandle, GL_GEOMETRY_VERTICES_OUT_EXT, _program->_geometryVerticesOut );
             _extensions->glProgramParameteri( _glProgramHandle, GL_GEOMETRY_INPUT_TYPE_EXT, _program->_geometryInputType );
             _extensions->glProgramParameteri( _glProgramHandle, GL_GEOMETRY_OUTPUT_TYPE_EXT, _program->_geometryOutputType );
-        }
-
-        if (_extensions->areTessellationShadersSupported() )
-        {
-            _extensions->glPatchParameteri( GL_PATCH_VERTICES, _program->_patchVertices );
-            // todo: add default tessellation level
         }
 
         // Detach removed shaders
@@ -681,7 +674,7 @@ void Program::PerContextProgram::linkProgram(osg::State& state)
         _extensions->glGetProgramiv(_glProgramHandle, GL_ACTIVE_UNIFORM_BLOCKS,
                                     reinterpret_cast<GLint*>(&activeUniformBlocks));
         _extensions->glGetProgramiv(_glProgramHandle,
-                                    GL_ACTIVE_UNIFORM_MAX_LENGTH,
+                                    GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH,
                                     &maxBlockNameLen);
         if (maxBlockNameLen > 0)
         {
@@ -775,7 +768,7 @@ void Program::PerContextProgram::linkProgram(osg::State& state)
 
     // print atomic counter
 
-    if (_extensions->isShaderAtomicCounterSupported() && !atomicCounterMap.empty()) 
+    if (_extensions->isShaderAtomicCounterSupported() && !atomicCounterMap.empty())
     {
         std::vector<GLint> bufferIndex( atomicCounterMap.size(), 0 );
         std::vector<GLuint> uniformIndex;
@@ -930,4 +923,8 @@ Program::ProgramBinary* Program::PerContextProgram::compileProgramBinary(osg::St
 void Program::PerContextProgram::useProgram() const
 {
     _extensions->glUseProgram( _glProgramHandle  );
+    if ( _program->_numGroupsX>0 && _program->_numGroupsY>0 && _program->_numGroupsZ>0 )
+    {
+        _extensions->glDispatchCompute( _program->_numGroupsX, _program->_numGroupsY, _program->_numGroupsZ );
+    }
 }

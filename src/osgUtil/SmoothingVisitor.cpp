@@ -142,10 +142,7 @@ static void smooth_old(osg::Geometry& geom)
     {
         nitr->normalize();
     }
-    geom.setNormalArray( normals );
-    geom.setNormalIndices( geom.getVertexIndices() );
-    geom.setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-
+    geom.setNormalArray( normals, osg::Array::BIND_PER_VERTEX);
 
     geom.dirtyDisplayList();
 }
@@ -239,6 +236,7 @@ struct FindSharpEdgesFunctor
             _primitiveSetIndex(primitiveSetIndex), _p1(p1), _p2(p2), _p3(p3) {}
 
         Triangle(const Triangle& tri):
+            osg::Referenced(true),
             _primitiveSetIndex(tri._primitiveSetIndex), _p1(tri._p1), _p2(tri._p2), _p3(tri._p3) {}
 
         Triangle& operator = (const Triangle& tri)
@@ -300,23 +298,23 @@ struct FindSharpEdgesFunctor
 
         _problemVertexVector.resize(_vertices->size());
 
-        addArray(geom->getVertexArray(), osg::Geometry::BIND_PER_VERTEX);
-        addArray(geom->getNormalArray(), geom->getNormalBinding());
-        addArray(geom->getColorArray(), geom->getColorBinding());
-        addArray(geom->getSecondaryColorArray(), geom->getSecondaryColorBinding());
-        addArray(geom->getFogCoordArray(), geom->getFogCoordBinding());
+        addArray(geom->getVertexArray());
+        addArray(geom->getNormalArray());
+        addArray(geom->getColorArray());
+        addArray(geom->getSecondaryColorArray());
+        addArray(geom->getFogCoordArray());
 
         for(unsigned int i=0; i<geom->getNumTexCoordArrays(); ++i)
         {
-            addArray(geom->getTexCoordArray(i), osg::Geometry::BIND_PER_VERTEX);
+            addArray(geom->getTexCoordArray(i));
         }
 
         return true;
     }
 
-    void addArray(osg::Array* array, osg::Geometry::AttributeBinding binding)
+    void addArray(osg::Array* array)
     {
-        if (array && binding==osg::Geometry::BIND_PER_VERTEX)
+        if (array && array->getBinding()==osg::Array::BIND_PER_VERTEX)
         {
             _arrays.push_back(array);
         }
@@ -623,8 +621,7 @@ static void smooth_new(osg::Geometry& geom, double creaseAngle)
     if (!normals || (normals && normals->size() != vertices->size()))
     {
         normals = new osg::Vec3Array(vertices->size());
-        geom.setNormalArray(normals);
-        geom.setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        geom.setNormalArray(normals, osg::Array::BIND_PER_VERTEX);
     }
 
     osg::TriangleIndexFunctor<SmoothTriangleIndexFunctor> stif;

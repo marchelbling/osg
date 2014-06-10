@@ -375,7 +375,7 @@ load_md2 (const char *filename, const osgDB::ReaderWriter::Options* options)
             }
         }
 
-        osg::Geometry *geom = new osg::Geometry;
+        deprecated_osg::Geometry *geom = new deprecated_osg::Geometry;
 
         geom->setVertexArray (vertexCoords);
         geom->setVertexIndices (vertexIndices);
@@ -385,7 +385,7 @@ load_md2 (const char *filename, const osgDB::ReaderWriter::Options* options)
 
         geom->setNormalArray (normalCoords);
         geom->setNormalIndices (normalIndices);
-        geom->setNormalBinding (osg::Geometry::BIND_PER_VERTEX);
+        geom->setNormalBinding (deprecated_osg::Geometry::BIND_PER_VERTEX);
 
         geom->addPrimitiveSet (new osg::DrawArrays (osg::PrimitiveSet::TRIANGLES, 0, vertexIndices->size ()));
 

@@ -31,19 +31,31 @@ GLObjectsVisitor::GLObjectsVisitor(Mode mode)
 
 }
 
-
 void GLObjectsVisitor::apply(osg::Node& node)
 {
+    bool programSetBefore = _lastCompiledProgram.valid();
+
     if (node.getStateSet())
     {
         apply(*(node.getStateSet()));
     }
 
     traverse(node);
+
+    bool programSetAfter = _renderInfo.getState()->getLastAppliedProgramObject()!=0;
+    if (programSetBefore && !programSetAfter)
+    {
+        osg::GL2Extensions* extensions = osg::GL2Extensions::Get(_renderInfo.getState()->getContextID(), true);
+        extensions->glUseProgram(0);
+        _renderInfo.getState()->setLastAppliedProgramObject(0);
+        _lastCompiledProgram = 0;
+    }
 }
 
 void GLObjectsVisitor::apply(osg::Geode& node)
 {
+    bool programSetBefore = _lastCompiledProgram.valid();
+
     if (node.getStateSet())
     {
         apply(*(node.getStateSet()));
@@ -60,6 +72,15 @@ void GLObjectsVisitor::apply(osg::Geode& node)
                 apply(*(drawable->getStateSet()));
             }
         }
+    }
+
+    bool programSetAfter = _lastCompiledProgram.valid();
+    if (!programSetBefore && programSetAfter)
+    {
+        osg::GL2Extensions* extensions = osg::GL2Extensions::Get(_renderInfo.getState()->getContextID(), true);
+        extensions->glUseProgram(0);
+        _renderInfo.getState()->setLastAppliedProgramObject(0);
+        _lastCompiledProgram = 0;
     }
 }
 
@@ -128,8 +149,8 @@ void GLObjectsVisitor::apply(osg::StateSet& stateset)
 
                 _renderInfo.getState()->setLastAppliedProgramObject(pcp);
 
-                osg::StateSet::UniformList& ul = stateset.getUniformList();
-                for(osg::StateSet::UniformList::iterator itr = ul.begin();
+                const osg::StateSet::UniformList& ul = stateset.getUniformList();
+                for(osg::StateSet::UniformList::const_iterator itr = ul.begin();
                     itr != ul.end();
                     ++itr)
                 {
@@ -159,7 +180,7 @@ void GLObjectsVisitor::apply(osg::StateSet& stateset)
 
 /////////////////////////////////////////////////////////////////
 //
-// GLObjectsVisitor
+// GLObjectsOperation
 //
 
 GLObjectsOperation::GLObjectsOperation(GLObjectsVisitor::Mode mode):

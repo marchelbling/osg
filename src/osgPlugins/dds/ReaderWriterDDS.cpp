@@ -35,6 +35,24 @@
 #include <stdio.h>
 #include <string.h>
 
+// Macro similar to what's in FLT/TRP plugins (except it uses wide char under Windows if OSG_USE_UTF8_FILENAME)
+#if defined(_WIN32)
+    #include <windows.h>
+    #include <osg/Config>
+    #include <osgDB/ConvertUTF>
+    #ifdef OSG_USE_UTF8_FILENAME
+        #define DELETEFILE(file) DeleteFileW(osgDB::convertUTF8toUTF16((file)).c_str())
+    #else
+        #define DELETEFILE(file) DeleteFileA((file))
+    #endif
+
+#else   // Unix
+
+    #include <stdio.h>
+    #define DELETEFILE(file) remove((file))
+
+#endif
+
 #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE)
     #define GL_RED                  0x1903
     #define GL_LUMINANCE4_ALPHA4    0x8043
@@ -241,56 +259,159 @@ struct DXT1TexelsBlock
 #define FOURCC_ATI1  (MAKEFOURCC('A','T','I','1'))
 #define FOURCC_ATI2  (MAKEFOURCC('A','T','I','2'))
 
-static unsigned int ComputeImageSizeInBytes
-    ( int width, int height, int depth,
-      unsigned int pixelFormat, unsigned int pixelType,
-      int packing = 1, int slice_packing = 1, int image_packing = 1 )
+/*
+* FOURCC codes for DX10 files
+*/
+#define FOURCC_DX10  (MAKEFOURCC('D','X','1','0'))
+
+typedef enum OSG_DXGI_FORMAT { 
+  OSG_DXGI_FORMAT_UNKNOWN                     = 0,
+  OSG_DXGI_FORMAT_R32G32B32A32_TYPELESS       = 1,
+  OSG_DXGI_FORMAT_R32G32B32A32_FLOAT          = 2,
+  OSG_DXGI_FORMAT_R32G32B32A32_UINT           = 3,
+  OSG_DXGI_FORMAT_R32G32B32A32_SINT           = 4,
+  OSG_DXGI_FORMAT_R32G32B32_TYPELESS          = 5,
+  OSG_DXGI_FORMAT_R32G32B32_FLOAT             = 6,
+  OSG_DXGI_FORMAT_R32G32B32_UINT              = 7,
+  OSG_DXGI_FORMAT_R32G32B32_SINT              = 8,
+  OSG_DXGI_FORMAT_R16G16B16A16_TYPELESS       = 9,
+  OSG_DXGI_FORMAT_R16G16B16A16_FLOAT          = 10,
+  OSG_DXGI_FORMAT_R16G16B16A16_UNORM          = 11,
+  OSG_DXGI_FORMAT_R16G16B16A16_UINT           = 12,
+  OSG_DXGI_FORMAT_R16G16B16A16_SNORM          = 13,
+  OSG_DXGI_FORMAT_R16G16B16A16_SINT           = 14,
+  OSG_DXGI_FORMAT_R32G32_TYPELESS             = 15,
+  OSG_DXGI_FORMAT_R32G32_FLOAT                = 16,
+  OSG_DXGI_FORMAT_R32G32_UINT                 = 17,
+  OSG_DXGI_FORMAT_R32G32_SINT                 = 18,
+  OSG_DXGI_FORMAT_R32G8X24_TYPELESS           = 19,
+  OSG_DXGI_FORMAT_D32_FLOAT_S8X24_UINT        = 20,
+  OSG_DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS    = 21,
+  OSG_DXGI_FORMAT_X32_TYPELESS_G8X24_UINT     = 22,
+  OSG_DXGI_FORMAT_R10G10B10A2_TYPELESS        = 23,
+  OSG_DXGI_FORMAT_R10G10B10A2_UNORM           = 24,
+  OSG_DXGI_FORMAT_R10G10B10A2_UINT            = 25,
+  OSG_DXGI_FORMAT_R11G11B10_FLOAT             = 26,
+  OSG_DXGI_FORMAT_R8G8B8A8_TYPELESS           = 27,
+  OSG_DXGI_FORMAT_R8G8B8A8_UNORM              = 28,
+  OSG_DXGI_FORMAT_R8G8B8A8_UNORM_SRGB         = 29,
+  OSG_DXGI_FORMAT_R8G8B8A8_UINT               = 30,
+  OSG_DXGI_FORMAT_R8G8B8A8_SNORM              = 31,
+  OSG_DXGI_FORMAT_R8G8B8A8_SINT               = 32,
+  OSG_DXGI_FORMAT_R16G16_TYPELESS             = 33,
+  OSG_DXGI_FORMAT_R16G16_FLOAT                = 34,
+  OSG_DXGI_FORMAT_R16G16_UNORM                = 35,
+  OSG_DXGI_FORMAT_R16G16_UINT                 = 36,
+  OSG_DXGI_FORMAT_R16G16_SNORM                = 37,
+  OSG_DXGI_FORMAT_R16G16_SINT                 = 38,
+  OSG_DXGI_FORMAT_R32_TYPELESS                = 39,
+  OSG_DXGI_FORMAT_D32_FLOAT                   = 40,
+  OSG_DXGI_FORMAT_R32_FLOAT                   = 41,
+  OSG_DXGI_FORMAT_R32_UINT                    = 42,
+  OSG_DXGI_FORMAT_R32_SINT                    = 43,
+  OSG_DXGI_FORMAT_R24G8_TYPELESS              = 44,
+  OSG_DXGI_FORMAT_D24_UNORM_S8_UINT           = 45,
+  OSG_DXGI_FORMAT_R24_UNORM_X8_TYPELESS       = 46,
+  OSG_DXGI_FORMAT_X24_TYPELESS_G8_UINT        = 47,
+  OSG_DXGI_FORMAT_R8G8_TYPELESS               = 48,
+  OSG_DXGI_FORMAT_R8G8_UNORM                  = 49,
+  OSG_DXGI_FORMAT_R8G8_UINT                   = 50,
+  OSG_DXGI_FORMAT_R8G8_SNORM                  = 51,
+  OSG_DXGI_FORMAT_R8G8_SINT                   = 52,
+  OSG_DXGI_FORMAT_R16_TYPELESS                = 53,
+  OSG_DXGI_FORMAT_R16_FLOAT                   = 54,
+  OSG_DXGI_FORMAT_D16_UNORM                   = 55,
+  OSG_DXGI_FORMAT_R16_UNORM                   = 56,
+  OSG_DXGI_FORMAT_R16_UINT                    = 57,
+  OSG_DXGI_FORMAT_R16_SNORM                   = 58,
+  OSG_DXGI_FORMAT_R16_SINT                    = 59,
+  OSG_DXGI_FORMAT_R8_TYPELESS                 = 60,
+  OSG_DXGI_FORMAT_R8_UNORM                    = 61,
+  OSG_DXGI_FORMAT_R8_UINT                     = 62,
+  OSG_DXGI_FORMAT_R8_SNORM                    = 63,
+  OSG_DXGI_FORMAT_R8_SINT                     = 64,
+  OSG_DXGI_FORMAT_A8_UNORM                    = 65,
+  OSG_DXGI_FORMAT_R1_UNORM                    = 66,
+  OSG_DXGI_FORMAT_R9G9B9E5_SHAREDEXP          = 67,
+  OSG_DXGI_FORMAT_R8G8_B8G8_UNORM             = 68,
+  OSG_DXGI_FORMAT_G8R8_G8B8_UNORM             = 69,
+  OSG_DXGI_FORMAT_BC1_TYPELESS                = 70,
+  OSG_DXGI_FORMAT_BC1_UNORM                   = 71,
+  OSG_DXGI_FORMAT_BC1_UNORM_SRGB              = 72,
+  OSG_DXGI_FORMAT_BC2_TYPELESS                = 73,
+  OSG_DXGI_FORMAT_BC2_UNORM                   = 74,
+  OSG_DXGI_FORMAT_BC2_UNORM_SRGB              = 75,
+  OSG_DXGI_FORMAT_BC3_TYPELESS                = 76,
+  OSG_DXGI_FORMAT_BC3_UNORM                   = 77,
+  OSG_DXGI_FORMAT_BC3_UNORM_SRGB              = 78,
+  OSG_DXGI_FORMAT_BC4_TYPELESS                = 79,
+  OSG_DXGI_FORMAT_BC4_UNORM                   = 80,
+  OSG_DXGI_FORMAT_BC4_SNORM                   = 81,
+  OSG_DXGI_FORMAT_BC5_TYPELESS                = 82,
+  OSG_DXGI_FORMAT_BC5_UNORM                   = 83,
+  OSG_DXGI_FORMAT_BC5_SNORM                   = 84,
+  OSG_DXGI_FORMAT_B5G6R5_UNORM                = 85,
+  OSG_DXGI_FORMAT_B5G5R5A1_UNORM              = 86,
+  OSG_DXGI_FORMAT_B8G8R8A8_UNORM              = 87,
+  OSG_DXGI_FORMAT_B8G8R8X8_UNORM              = 88,
+  OSG_DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM  = 89,
+  OSG_DXGI_FORMAT_B8G8R8A8_TYPELESS           = 90,
+  OSG_DXGI_FORMAT_B8G8R8A8_UNORM_SRGB         = 91,
+  OSG_DXGI_FORMAT_B8G8R8X8_TYPELESS           = 92,
+  OSG_DXGI_FORMAT_B8G8R8X8_UNORM_SRGB         = 93,
+  OSG_DXGI_FORMAT_BC6H_TYPELESS               = 94,
+  OSG_DXGI_FORMAT_BC6H_UF16                   = 95,
+  OSG_DXGI_FORMAT_BC6H_SF16                   = 96,
+  OSG_DXGI_FORMAT_BC7_TYPELESS                = 97,
+  OSG_DXGI_FORMAT_BC7_UNORM                   = 98,
+  OSG_DXGI_FORMAT_BC7_UNORM_SRGB              = 99,
+  OSG_DXGI_FORMAT_AYUV                        = 100,
+  OSG_DXGI_FORMAT_Y410                        = 101,
+  OSG_DXGI_FORMAT_Y416                        = 102,
+  OSG_DXGI_FORMAT_NV12                        = 103,
+  OSG_DXGI_FORMAT_P010                        = 104,
+  OSG_DXGI_FORMAT_P016                        = 105,
+  OSG_DXGI_FORMAT_420_OPAQUE                  = 106,
+  OSG_DXGI_FORMAT_YUY2                        = 107,
+  OSG_DXGI_FORMAT_Y210                        = 108,
+  OSG_DXGI_FORMAT_Y216                        = 109,
+  OSG_DXGI_FORMAT_NV11                        = 110,
+  OSG_DXGI_FORMAT_AI44                        = 111,
+  OSG_DXGI_FORMAT_IA44                        = 112,
+  OSG_DXGI_FORMAT_P8                          = 113,
+  OSG_DXGI_FORMAT_A8P8                        = 114,
+  OSG_DXGI_FORMAT_B4G4R4A4_UNORM              = 115,
+  OSG_DXGI_FORMAT_FORCE_UINT                  = 0xffffffffUL
+} OSG_DXGI_FORMAT;
+
+typedef enum OSG_D3D10_RESOURCE_DIMENSION { 
+  OSG_D3D10_RESOURCE_DIMENSION_UNKNOWN    = 0,
+  OSG_D3D10_RESOURCE_DIMENSION_BUFFER     = 1,
+  OSG_D3D10_RESOURCE_DIMENSION_TEXTURE1D  = 2,
+  OSG_D3D10_RESOURCE_DIMENSION_TEXTURE2D  = 3,
+  OSG_D3D10_RESOURCE_DIMENSION_TEXTURE3D  = 4
+} OSG_D3D10_RESOURCE_DIMENSION;
+
+typedef struct {
+  OSG_DXGI_FORMAT              dxgiFormat;
+  OSG_D3D10_RESOURCE_DIMENSION resourceDimension;
+  UI32                     miscFlag;
+  UI32                     arraySize;
+  UI32                     reserved;
+} OSG_DDS_HEADER_DXT10;
+
+static unsigned int ComputeImageSizeInBytes( int width, int height, int depth,
+                                             unsigned int pixelFormat, unsigned int pixelType,
+                                             int packing = 1, int slice_packing = 1, int image_packing = 1 )
 {
     if( width < 1 )  width = 1;
     if( height < 1 ) height = 1;
     if( depth < 1 )  depth = 1;
-
-    // Taking advantage of the fact that
-    // DXT formats are defined as 4 successive numbers:
-    // GL_COMPRESSED_RGB_S3TC_DXT1_EXT         0x83F0
-    // GL_COMPRESSED_RGBA_S3TC_DXT1_EXT        0x83F1
-    // GL_COMPRESSED_RGBA_S3TC_DXT3_EXT        0x83F2
-    // GL_COMPRESSED_RGBA_S3TC_DXT5_EXT        0x83F3
-    if( pixelFormat >= GL_COMPRESSED_RGB_S3TC_DXT1_EXT &&
-        pixelFormat <= GL_COMPRESSED_RGBA_S3TC_DXT5_EXT )
-    {
-        width = (width + 3) & ~3;
-        height = (height + 3) & ~3;
-    }
-    // 3dc ATI formats
-    // GL_COMPRESSED_RED_RGTC1_EXT                     0x8DBB
-    // GL_COMPRESSED_SIGNED_RED_RGTC1_EXT              0x8DBC
-    // GL_COMPRESSED_RED_GREEN_RGTC2_EXT               0x8DBD
-    // GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT        0x8DBE
-    if( pixelFormat >= GL_COMPRESSED_RED_RGTC1_EXT &&
-        pixelFormat <= GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT )
-    {
-        width = (width + 3) & ~3;
-        height = (height + 3) & ~3;
-    }
-    // compute size of one row
-    unsigned int size = osg::Image::computeRowWidthInBytes
-                            ( width, pixelFormat, pixelType, packing );
-
-    // now compute size of slice
-    size *= height;
-    size += slice_packing - 1;
-    size -= size % slice_packing;
-
-    // compute size of whole image
-    size *= depth;
-    size += image_packing - 1;
-    size -= size % image_packing;
-
-    return size;
+    
+    return osg::Image::computeImageSizeInBytes(width, height, depth, pixelFormat, pixelType, packing, slice_packing, image_packing);
 }
 
-osg::Image* ReadDDSFile(std::istream& _istream)
+osg::Image* ReadDDSFile(std::istream& _istream, bool flipDDSRead)
 {
     DDSURFACEDESC2 ddsd;
 
@@ -353,6 +474,8 @@ osg::Image* ReadDDSFile(std::istream& _istream)
     // while compressed formats will use DDPF_FOURCC with a four-character code.
 
     bool usingAlpha = ddsd.ddpfPixelFormat.dwFlags & DDPF_ALPHAPIXELS;
+    int packing(1);
+    bool isDXTC(false);
 
     // Uncompressed formats.
     if(ddsd.ddpfPixelFormat.dwFlags & DDPF_RGB)
@@ -518,16 +641,22 @@ osg::Image* ReadDDSFile(std::istream& _istream)
                 internalFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
                 pixelFormat    = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
             }
+            packing = 2;        // 4 bits/pixel. 4 px = 2 bytes
+            isDXTC = true;
             break;
         case FOURCC_DXT3:
             OSG_INFO << "ReadDDSFile info : format = DXT3" << std::endl;
             internalFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
             pixelFormat    = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+            packing = 4;        // 8 bits/pixel. 4 px = 4 bytes
+            isDXTC = true;
             break;
         case FOURCC_DXT5:
             OSG_INFO << "ReadDDSFile info : format = DXT5" << std::endl;
             internalFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
             pixelFormat    = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+            packing = 4;        // 8 bits/pixel. 4 px = 4 bytes
+            isDXTC = true;
             break;
         case FOURCC_ATI1:
             OSG_INFO << "ReadDDSFile info : format = ATI1" << std::endl;
@@ -549,7 +678,7 @@ osg::Image* ReadDDSFile(std::istream& _istream)
             OSG_INFO << "ReadDDSFile info : format = A16B16G16R16F" << std::endl;
             internalFormat = GL_RGBA; // why no transparency?
             pixelFormat    = GL_RGBA;
-            dataType       = GL_HALF_FLOAT_NV;
+            dataType       = GL_HALF_FLOAT;
             break;
         case 0x0000006E: // Q16W16V16U16
             OSG_INFO << "ReadDDSFile info : format = Q16W16V16U16" << std::endl;
@@ -563,7 +692,7 @@ osg::Image* ReadDDSFile(std::istream& _istream)
             return NULL;
 //             internalFormat = GL_RGB;
 //             pixelFormat    = must be GL_RED and GL_GREEN
-//             dataType       = GL_HALF_FLOAT_NV;
+//             dataType       = GL_HALF_FLOAT;
             break;
         case 0x00000073: // G32R32F
             OSG_INFO << "ReadDDSFile info : G32R32F format is not supported"
@@ -583,7 +712,7 @@ osg::Image* ReadDDSFile(std::istream& _istream)
             OSG_INFO << "ReadDDSFile info : format = R16F" << std::endl;
             internalFormat = GL_RGB;
             pixelFormat    = GL_RED;
-            dataType       = GL_HALF_FLOAT_NV;
+            dataType       = GL_HALF_FLOAT;
             break;
         case 0x00000074: // A32B32G32R32F
             OSG_INFO << "ReadDDSFile info : format = A32B32G32R32F" << std::endl;
@@ -594,6 +723,208 @@ osg::Image* ReadDDSFile(std::istream& _istream)
         case 0x00000075: // CxV8U8
             OSG_INFO << "ReadDDSFile info : CxV8U8 format is not supported" << std::endl;
             return NULL;
+
+        case FOURCC_DX10:
+            OSG_INFO << "ReadDDSFile info : format = DX10 file" << std::endl;
+            {
+                OSG_DDS_HEADER_DXT10 header10;
+                _istream.read((char*)(&header10), sizeof(header10));
+                switch (header10.dxgiFormat) {
+                case OSG_DXGI_FORMAT_R32G32B32A32_FLOAT:
+                    internalFormat = GL_RGBA32F_ARB;
+                    pixelFormat    = GL_RGBA;
+                    dataType       = GL_FLOAT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32G32B32A32_UINT:
+                    internalFormat = GL_RGBA32UI_EXT;
+                    pixelFormat    = GL_RGBA;
+                    dataType       = GL_UNSIGNED_INT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32G32B32A32_SINT:
+                    internalFormat = GL_RGBA32I_EXT;
+                    pixelFormat    = GL_RGBA;
+                    dataType       = GL_INT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32G32B32_FLOAT:
+                    internalFormat = GL_RGB32F_ARB;
+                    pixelFormat    = GL_RGB;
+                    dataType       = GL_FLOAT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32G32B32_UINT:
+                    internalFormat = GL_RGB32UI_EXT;
+                    pixelFormat    = GL_RGB;
+                    dataType       = GL_UNSIGNED_INT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32G32B32_SINT:
+                    internalFormat = GL_RGB32I_EXT;
+                    pixelFormat    = GL_RGB;
+                    dataType       = GL_INT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16G16B16A16_FLOAT:
+                    internalFormat = GL_RGBA16F_ARB;
+                    pixelFormat    = GL_RGBA;
+                    dataType       = GL_HALF_FLOAT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16G16B16A16_UNORM:
+                    internalFormat = GL_RGBA16;
+                    pixelFormat    = GL_RGBA;
+                    dataType       = GL_UNSIGNED_SHORT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16G16B16A16_UINT:
+                    internalFormat = GL_RGBA16UI_EXT;
+                    pixelFormat    = GL_RGBA;
+                    dataType       = GL_UNSIGNED_SHORT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16G16B16A16_SNORM:
+                    internalFormat = GL_RGBA16_SNORM;
+                    pixelFormat    = GL_RGBA;
+                    dataType       = GL_SHORT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16G16B16A16_SINT:
+                    internalFormat = GL_RGBA16I_EXT;
+                    pixelFormat    = GL_RGBA;
+                    dataType       = GL_SHORT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32G32_FLOAT:
+                    internalFormat = GL_RG32F;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_FLOAT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32G32_UINT:
+                    internalFormat = GL_RG32UI;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_UNSIGNED_INT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32G32_SINT:
+                    internalFormat = GL_RG32I;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_INT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16G16_FLOAT:
+                    internalFormat = GL_RG16F;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_HALF_FLOAT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16G16_UNORM:
+                    internalFormat = GL_RG16;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_UNSIGNED_SHORT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16G16_UINT:
+                    internalFormat = GL_RG16UI;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_UNSIGNED_SHORT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16G16_SNORM:
+                    internalFormat = GL_RG16_SNORM;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_UNSIGNED_SHORT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16G16_SINT:
+                    internalFormat = GL_RG16I;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_SHORT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32_FLOAT:
+                    internalFormat = GL_R32F;
+                    pixelFormat    = GL_RED;
+                    dataType       = GL_FLOAT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32_UINT:
+                    internalFormat = GL_R32UI;
+                    pixelFormat    = GL_RED;
+                    dataType       = GL_UNSIGNED_INT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R32_SINT:
+                    internalFormat = GL_R32I;
+                    pixelFormat    = GL_RED;
+                    dataType       = GL_INT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R8G8_UNORM:
+                    internalFormat = GL_RG;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_UNSIGNED_BYTE;
+                    break;
+
+                case OSG_DXGI_FORMAT_R8G8_UINT:
+                    internalFormat = GL_RG8UI;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_UNSIGNED_BYTE;
+                    break;
+
+                case OSG_DXGI_FORMAT_R8G8_SNORM:
+                    internalFormat = GL_RG_SNORM;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_BYTE;
+                    break;
+
+                case OSG_DXGI_FORMAT_R8G8_SINT:
+                    internalFormat = GL_RG8I;
+                    pixelFormat    = GL_RG;
+                    dataType       = GL_BYTE;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16_FLOAT:
+                    internalFormat = GL_R16F;
+                    pixelFormat    = GL_RED;
+                    dataType       = GL_HALF_FLOAT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16_UNORM:
+                    internalFormat = GL_RED;
+                    pixelFormat    = GL_RED;
+                    dataType       = GL_HALF_FLOAT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16_UINT:
+                    internalFormat = GL_R16UI;
+                    pixelFormat    = GL_RED;
+                    dataType       = GL_UNSIGNED_SHORT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16_SNORM:
+                    internalFormat = GL_RED_SNORM;
+                    pixelFormat    = GL_RED;
+                    dataType       = GL_SHORT;
+                    break;
+
+                case OSG_DXGI_FORMAT_R16_SINT:
+                    internalFormat = GL_R16I;
+                    pixelFormat    = GL_RED;
+                    dataType       = GL_SHORT;
+                    break;
+
+                default:
+                    OSG_WARN << "ReadDDSFile warning: unhandled DX10 pixel format 0x"
+                             << std::hex << std::setw(8) << std::setfill('0')
+                             << header10.dxgiFormat << std::dec
+                             << " in dds file, image not loaded." << std::endl;
+                    return NULL;
+                }
+            }
+            break;
 
         case MAKEFOURCC( 'U', 'Y', 'V', 'Y' ): // not supported in OSG
         case MAKEFOURCC( 'U', 'Y', 'V', '2' ): // not supported in OSG
@@ -622,7 +953,7 @@ osg::Image* ReadDDSFile(std::istream& _istream)
         return NULL;
     }
 
-    unsigned int size = ComputeImageSizeInBytes( s, t, r, pixelFormat, dataType );
+    unsigned int size = ComputeImageSizeInBytes( s, t, r, pixelFormat, dataType, packing );
 
     // Take care of mipmaps if any.
     unsigned int sizeWithMipmaps = size;
@@ -647,7 +978,7 @@ osg::Image* ReadDDSFile(std::istream& _istream)
            depth = osg::maximum( depth >> 1, 1 );
 
            sizeWithMipmaps +=
-                ComputeImageSizeInBytes( width, height, depth, pixelFormat, dataType );
+                ComputeImageSizeInBytes( width, height, depth, pixelFormat, dataType, packing );
         }
     }
 
@@ -677,16 +1008,29 @@ osg::Image* ReadDDSFile(std::istream& _istream)
         // this memory will not be used but it will not cause leak in worst meaning of this word.
     }
 
-    osgImage->setImage(s,t,r, internalFormat, pixelFormat, dataType, imageData, osg::Image::USE_NEW_DELETE);
+    osgImage->setImage(s,t,r, internalFormat, pixelFormat, dataType, imageData, osg::Image::USE_NEW_DELETE, packing);
 
     if (mipmap_offsets.size()>0) osgImage->setMipmapLevels(mipmap_offsets);
+
+    if (flipDDSRead) {
+        osgImage->setOrigin(osg::Image::BOTTOM_LEFT);
+        if (!isDXTC || ((s>4 && s%4==0 && t>4 && t%4==0) || s<4))        // Flip may crash (access violation) or fail for non %4 dimensions (except for s<4). Tested with revision trunk 2013-02-22.
+        {
+            osgImage->flipVertical();
+        }
+        else
+        {
+            OSG_WARN << "ReadDDSFile warning: Vertical flip was skipped. Image dimensions have to be multiple of 4." << std::endl;
+        }
+    }
 
     // Return Image.
     return osgImage.release();
 }
 
-bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
+bool WriteDDSFile(const osg::Image *img, std::ostream& fout, bool autoFlipDDSWrite)
 {
+    bool isDXTC(false);
 
     // Initialize ddsd structure and its members
     DDSURFACEDESC2 ddsd;
@@ -715,7 +1059,20 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
     //unsigned int internalFormat = img->getInternalTextureFormat();
     //unsigned int components     = osg::Image::computeNumComponents(pixelFormat);
     unsigned int pixelSize      = osg::Image::computePixelSizeInBits(pixelFormat, dataType);
-    unsigned int imageSize      = img->getImageSizeInBytes();
+    unsigned int imageSize      = img->getTotalSizeInBytes();
+
+    // Check that theorical image size (computation taking into account DXTC blocks) is not bigger than actual image size.
+    // This may happen, for instance, if some operation tuncated the data buffer non block-aligned. Example:
+    //  - Read DXT1 image, size = 8x7. Actually, image data is 8x8 because it stores 4x4 blocks.
+    //  - Some hypothetical operation wrongly assumes the data buffer is 8x7 and truncates the buffer. This may even lead to access violations.
+    //  - Then we write the DXT1 image: last block(s) is (are) corrupt.
+    // Actually what could be very nice is to handle some "lines packing" (?) in DDS reading, indicating that the image buffer has "additional lines to reach a multiple of 4".
+    // Please note this can also produce false positives (ie. when data buffer is large enough, but getImageSizeInBytes() returns a smaller value). There is no way to detect this, until we fix getImageSizeInBytes() with "line packing".
+    unsigned int imageSizeTheorical = ComputeImageSizeInBytes( img->s(), img->t(), img->r(), pixelFormat, dataType, img->getPacking() );
+    if (imageSize < imageSizeTheorical) {
+        OSG_FATAL << "Image cannot be written as DDS (Maybe a corrupt S3TC-DXTC image, with non %4 dimensions)." << std::endl;
+        return false;
+    }
 
     ddsd.dwWidth  = img->s();
     ddsd.dwHeight = img->t();
@@ -790,6 +1147,7 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
         }
         break;
     case GL_LUMINANCE:
+    case GL_DEPTH_COMPONENT:
         {
             ddpf.dwRBitMask         = 0x000000ff;
             PF_flags |= DDPF_LUMINANCE;
@@ -811,6 +1169,7 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
         //Compressed
     case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
         {
+            isDXTC = true;
             ddpf.dwFourCC = FOURCC_DXT1;
             PF_flags |= (DDPF_ALPHAPIXELS | DDPF_FOURCC);
             ddsd.dwLinearSize = imageSize;
@@ -819,6 +1178,7 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
         break;
     case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
         {
+            isDXTC = true;
             ddpf.dwFourCC = FOURCC_DXT3;
             PF_flags |= (DDPF_ALPHAPIXELS | DDPF_FOURCC);
             ddsd.dwLinearSize = imageSize;
@@ -827,6 +1187,7 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
         break;
     case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
         {
+            isDXTC = true;
             ddpf.dwFourCC = FOURCC_DXT5;
             PF_flags |= (DDPF_ALPHAPIXELS | DDPF_FOURCC);
             ddsd.dwLinearSize = imageSize;
@@ -835,6 +1196,7 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
         break;
     case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
         {
+            isDXTC = true;
             ddpf.dwFourCC = FOURCC_DXT1;
             PF_flags |= DDPF_FOURCC;  /* No alpha here */
             ddsd.dwLinearSize = imageSize;
@@ -883,9 +1245,9 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
 
        OSG_INFO<<"no mipmaps to write out."<<std::endl;
 
-    } else if( img->getPacking() > 1 ) {
+    //} else if( img->getPacking() > 1 ) {
 
-       OSG_WARN<<"Warning: mipmaps not written. DDS requires packing == 1."<<std::endl;
+    //   OSG_WARN<<"Warning: mipmaps not written. DDS requires packing == 1."<<std::endl;
 
     } else { // image contains mipmaps and has 1 byte alignment
 
@@ -906,11 +1268,32 @@ bool WriteDDSFile(const osg::Image *img, std::ostream& fout)
     ddsd.ddpfPixelFormat = ddpf;
     ddsd.ddsCaps = ddsCaps;
 
+    osg::ref_ptr<const osg::Image> source;
+    if (autoFlipDDSWrite && img->getOrigin() == osg::Image::BOTTOM_LEFT)
+    {
+        osg::ref_ptr<osg::Image> copy( new osg::Image(*img,osg::CopyOp::DEEP_COPY_ALL) );
+        const int s(copy->s());
+        const int t(copy->t());
+        if (!isDXTC || ((s>4 && s%4==0 && t>4 && t%4==0) || s<4))        // Flip may crash (access violation) or fail for non %4 dimensions (except for s<4). Tested with revision trunk 2013-02-22.
+        {
+            copy->flipVertical();
+        }
+        else
+        {
+            OSG_WARN << "WriteDDSFile warning: Vertical flip was skipped. Image dimensions have to be multiple of 4." << std::endl;
+        }
+        source = copy;
+    } 
+    else
+    {
+        source = img;
+    }
+
     // Write DDS file
     fout.write("DDS ", 4); /* write FOURCC */
     fout.write(reinterpret_cast<char*>(&ddsd), sizeof(ddsd)); /* write file header */
 
-    for(osg::Image::DataIterator itr(img); itr.valid(); ++itr)
+    for(osg::Image::DataIterator itr(source.get()); itr.valid(); ++itr)
     {
         fout.write(reinterpret_cast<const char*>(itr.data()), itr.size() );
     }
@@ -934,7 +1317,8 @@ public:
         supportsOption("dds_dxt1_rgb","Set the pixel format of DXT1 encoded images to be RGB variant of DXT1");
         supportsOption("dds_dxt1_rgba","Set the pixel format of DXT1 encoded images to be RGBA variant of DXT1");
         supportsOption("dds_dxt1_detect_rgba","For DXT1 encode images set the pixel format according to presence of transparent pixels");
-        supportsOption("dds_flip","Flip the image about the horizontl axis");
+        supportsOption("dds_flip","Flip the image about the horizontal axis");
+        supportsOption("ddsNoAutoFlipWrite", "(Write option) Avoid automatically flipping the image vertically when writing, depending on the origin (Image::getOrigin()).");
     }
 
     virtual const char* className() const
@@ -970,23 +1354,39 @@ public:
 
     virtual ReadResult readImage(std::istream& fin, const Options* options) const
     {
-        osg::Image* osgImage = ReadDDSFile(fin);
+        bool dds_flip(false);
+        bool dds_dxt1_rgba(false);
+        bool dds_dxt1_rgb(false);
+        bool dds_dxt1_detect_rgba(false);
+        if (options)
+        {
+            std::istringstream iss(options->getOptionString());
+            std::string opt; 
+            while (iss >> opt)
+            {
+                if (opt == "dds_flip") dds_flip = true;
+                if (opt == "dds_dxt1_rgba") dds_dxt1_rgba = true;
+                if (opt == "dds_dxt1_rgb") dds_dxt1_rgb = true;
+                if (opt == "dds_dxt1_detect_rgba") dds_dxt1_detect_rgba = true;
+            }
+        }
+        osg::Image* osgImage = ReadDDSFile(fin, dds_flip);
         if (osgImage==NULL) return ReadResult::FILE_NOT_HANDLED;
 
         if (osgImage->getPixelFormat()==GL_COMPRESSED_RGB_S3TC_DXT1_EXT ||
             osgImage->getPixelFormat()==GL_COMPRESSED_RGBA_S3TC_DXT1_EXT)
         {
-            if (options && options->getOptionString().find("dds_dxt1_rgba")!=std::string::npos)
+            if (dds_dxt1_rgba)
             {
                 osgImage->setPixelFormat(GL_COMPRESSED_RGBA_S3TC_DXT1_EXT);
                 osgImage->setInternalTextureFormat(GL_COMPRESSED_RGBA_S3TC_DXT1_EXT);
             }
-            else if (options && options->getOptionString().find("dds_dxt1_rgb")!=std::string::npos)
+            else if (dds_dxt1_rgb)
             {
                 osgImage->setPixelFormat(GL_COMPRESSED_RGB_S3TC_DXT1_EXT);
                 osgImage->setInternalTextureFormat(GL_COMPRESSED_RGB_S3TC_DXT1_EXT);
             }
-            else if (options && options->getOptionString().find("dds_dxt1_detect_rgba")!=std::string::npos)
+            else if (dds_dxt1_detect_rgba)
             {
                 // check to see if DXT1c (RGB_S3TC_DXT1) format image might actually be
                 // a DXT1a format image
@@ -1009,11 +1409,6 @@ public:
                     OSG_INFO<<"Image with PixelFormat==GL_COMPRESSED_RGB_S3TC_DXT1_EXT has transparency, setting format to GL_COMPRESSED_RGBA_S3TC_DXT1_EXT."<<std::endl;
                 }
             }
-        }
-
-        if (options && options->getOptionString().find("dds_flip")!=std::string::npos)
-        {
-            osgImage->flipVertical();
         }
 
         return osgImage;
@@ -1044,12 +1439,19 @@ public:
         osgDB::ofstream fout(file.c_str(), std::ios::out | std::ios::binary);
         if(!fout) return WriteResult::ERROR_IN_WRITING_FILE;
 
-        return writeImage(image,fout,options);
+        WriteResult res( writeImage(image,fout,options) );
+        if (!res.success()) {
+            // Remove file on failure
+            fout.close();
+            DELETEFILE(file.c_str());
+        }
+        return res;
     }
 
-    virtual WriteResult writeImage(const osg::Image& image,std::ostream& fout,const Options*) const
+    virtual WriteResult writeImage(const osg::Image& image,std::ostream& fout,const Options* options) const
     {
-        bool success = WriteDDSFile(&image, fout);
+        bool noAutoFlipDDSWrite = options && options->getOptionString().find("ddsNoAutoFlipWrite")!=std::string::npos;
+        bool success = WriteDDSFile(&image, fout, !noAutoFlipDDSWrite);
 
         if(success)
             return WriteResult::FILE_SAVED;

@@ -301,22 +301,16 @@ PlyFile *ply_open_for_writing(
   float *version
 )
 {
-  PlyFile *plyfile;
-  char *name;
-  FILE *fp;
-
-
   /* open the file for writing */
 
-  fp = osgDB::fopen (filename, "wb");
-  free (name); //wjs remove memory leak//
+  FILE *fp = osgDB::fopen (filename, "wb");
   if (fp == NULL) {
     return (NULL);
   }
 
   /* create the actual PlyFile structure */
 
-  plyfile = ply_write (fp, nelems, elem_names, file_type);
+  PlyFile *plyfile = ply_write (fp, nelems, elem_names, file_type);
 
   // If the plyfile could not load return NULL
   if (plyfile == NULL)
@@ -951,7 +945,7 @@ PlyFile *ply_open_for_reading(
 
   if(!plyfile)
   {
-      std::cout<<"Ply File Error : Could not read file " << filename <<std::endl;
+    std::cout<<"Ply File Error : Could not read file " << filename <<std::endl;
     return NULL;
   }
 

@@ -967,12 +967,13 @@ GLenum Uniform::getInternalArrayType( Type t )
     }
 }
 
-typedef std::map<std::string, unsigned int> UniformNameIDMap;
-static OpenThreads::Mutex s_mutex_uniformNameIDMap;
-static UniformNameIDMap s_uniformNameIDMap;
 
 unsigned int Uniform::getNameID(const std::string& name)
 {
+    typedef std::map<std::string, unsigned int> UniformNameIDMap;
+    static OpenThreads::Mutex s_mutex_uniformNameIDMap;
+    static UniformNameIDMap s_uniformNameIDMap;
+    
     OpenThreads::ScopedLock<OpenThreads::Mutex> lock(s_mutex_uniformNameIDMap);
     UniformNameIDMap::iterator it = s_uniformNameIDMap.find(name);
     if (it != s_uniformNameIDMap.end())
@@ -983,6 +984,9 @@ unsigned int Uniform::getNameID(const std::string& name)
     s_uniformNameIDMap.insert(UniformNameIDMap::value_type(name, id));
     return id;
 }
+
+// Use a proxy to force the initialization of the static variables in the Unifrom::getNameID() method during static initialization
+OSG_INIT_SINGLETON_PROXY(UniformNameIDStaticInitializationProxy, Uniform::getNameID(std::string()))
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -2149,7 +2153,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix2& m2 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(FLOAT_MAT2) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m2.base_class::set( &((*_floatArray)[j]) );
+    m2.Matrix2::base_class::set( &((*_floatArray)[j]) );
     return true;
 }
 
@@ -2157,7 +2161,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix3& m3 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(FLOAT_MAT3) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m3.base_class::set( &((*_floatArray)[j]) );
+    m3.Matrix3::base_class::set( &((*_floatArray)[j]) );
     return true;
 }
 
@@ -2173,7 +2177,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix2x3& m2x3 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(FLOAT_MAT2x3) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m2x3.base_class::set( &((*_floatArray)[j]) );
+    m2x3.Matrix2x3::base_class::set( &((*_floatArray)[j]) );
     return true;
 }
 
@@ -2181,7 +2185,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix2x4& m2x4 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(FLOAT_MAT2x4) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m2x4.base_class::set( &((*_floatArray)[j]) );
+    m2x4.Matrix2x4::base_class::set( &((*_floatArray)[j]) );
     return true;
 }
 
@@ -2189,7 +2193,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix3x2& m3x2 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(FLOAT_MAT3x2) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m3x2.base_class::set( &((*_floatArray)[j]) );
+    m3x2.Matrix3x2::base_class::set( &((*_floatArray)[j]) );
     return true;
 }
 
@@ -2197,7 +2201,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix3x4& m3x4 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(FLOAT_MAT3x4) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m3x4.base_class::set( &((*_floatArray)[j]) );
+    m3x4.Matrix3x4::base_class::set( &((*_floatArray)[j]) );
     return true;
 }
 
@@ -2205,7 +2209,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix4x2& m4x2 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(FLOAT_MAT4x2) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m4x2.base_class::set( &((*_floatArray)[j]) );
+    m4x2.Matrix4x2::base_class::set( &((*_floatArray)[j]) );
     return true;
 }
 
@@ -2213,7 +2217,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix4x3& m4x3 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(FLOAT_MAT4x3) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m4x3.base_class::set( &((*_floatArray)[j]) );
+    m4x3.Matrix4x3::base_class::set( &((*_floatArray)[j]) );
     return true;
 }
 
@@ -2259,7 +2263,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix2d& m2 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(DOUBLE_MAT2) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m2.base_class::set( &((*_doubleArray)[j]) );
+    m2.Matrix2d::base_class::set( &((*_doubleArray)[j]) );
     return true;
 }
 
@@ -2267,7 +2271,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix3d& m3 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(DOUBLE_MAT3) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m3.base_class::set( &((*_doubleArray)[j]) );
+    m3.Matrix3d::base_class::set( &((*_doubleArray)[j]) );
     return true;
 }
 
@@ -2287,7 +2291,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix2x3d& m2x3 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(DOUBLE_MAT2x3) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m2x3.base_class::set( &((*_doubleArray)[j]) );
+    m2x3.Matrix2x3d::base_class::set( &((*_doubleArray)[j]) );
     return true;
 }
 
@@ -2295,7 +2299,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix2x4d& m2x4 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(DOUBLE_MAT2x4) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m2x4.base_class::set( &((*_doubleArray)[j]) );
+    m2x4.Matrix2x4d::base_class::set( &((*_doubleArray)[j]) );
     return true;
 }
 
@@ -2303,7 +2307,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix3x2d& m3x2 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(DOUBLE_MAT3x2) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m3x2.base_class::set( &((*_doubleArray)[j]) );
+    m3x2.Matrix3x2d::base_class::set( &((*_doubleArray)[j]) );
     return true;
 }
 
@@ -2311,7 +2315,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix3x4d& m3x4 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(DOUBLE_MAT3x4) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m3x4.base_class::set( &((*_doubleArray)[j]) );
+    m3x4.Matrix3x4d::base_class::set( &((*_doubleArray)[j]) );
     return true;
 }
 
@@ -2319,7 +2323,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix4x2d& m4x2 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(DOUBLE_MAT4x2) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m4x2.base_class::set( &((*_doubleArray)[j]) );
+    m4x2.Matrix4x2d::base_class::set( &((*_doubleArray)[j]) );
     return true;
 }
 
@@ -2327,7 +2331,7 @@ bool Uniform::getElement( unsigned int index, osg::Matrix4x3d& m4x3 ) const
 {
     if( index>=getNumElements() || !isCompatibleType(DOUBLE_MAT4x3) ) return false;
     unsigned int j = index * getTypeNumComponents(getType());
-    m4x3.base_class::set( &((*_doubleArray)[j]) );
+    m4x3.Matrix4x3d::base_class::set( &((*_doubleArray)[j]) );
     return true;
 }
 
