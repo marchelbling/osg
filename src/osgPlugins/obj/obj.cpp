@@ -483,10 +483,10 @@ bool Model::readMTL(std::istream& fin, const osgDB::ReaderWriter::Options* optio
 
                         if (fieldsRead==1)
                         {
-                            material->ambient[3] = alpha;
-                            material->diffuse[3] = alpha;
-                            material->specular[3] = alpha;
-                            material->emissive[3] = alpha;
+                            material->ambient[3] = 1.f -  alpha;
+                            material->diffuse[3] = 1.f - alpha;
+                            material->specular[3] = 1.f - alpha;
+                            material->emissive[3] = 1.f - alpha;
                         }
                     }
                 }
