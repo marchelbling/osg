@@ -74,11 +74,26 @@ public:
                       image->setWriteHint(osg::Image::EXTERNAL_FILE);
                     }
 
+                    transcodeImage(fileName, image);
+
                     std::string imagePath = getImagePath(fileName);
                     image->setFileName(imagePath);
                     _textures.insert(imagePath);
                 }
             }
+        }
+    }
+
+    void transcodeImage(std::string& fileName, osg::Image const* image)
+    {
+        // transcode specific formats that are not usually readable
+        // by image tools
+        std::string extension = osgDB::getFileExtension(fileName);
+        std::string const transcoded_extension = "dds";
+
+        if(extension == std::string("vtf")) {
+            fileName = fileName + "." + transcoded_extension;
+            osgDB::writeImageFile(*image, fileName);
         }
     }
 
