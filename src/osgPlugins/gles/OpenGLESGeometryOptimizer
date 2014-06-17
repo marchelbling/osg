@@ -1,0 +1,78 @@
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson
+ *
+ * This application is open source and may be redistributed and/or modified
+ * freely and without restriction, both in commercial and non commercial
+ * applications, as long as this copyright notice is maintained.
+ *
+ * This application is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+*/
+
+#ifndef OPENGLES_GEOMETRY_OPTIMIZER
+#define OPENGLES_GEOMETRY_OPTIMIZER
+
+#include <osg/Node>
+#include <algorithm> //std::max
+
+
+class OpenGLESGeometryOptimizer
+{
+public:
+    OpenGLESGeometryOptimizer() :
+        _useDrawArray(false),
+        _disableTriStrip(false),
+        _disableMergeTriStrip(false),
+        _disablePreTransform(false),
+        _triStripCacheSize(16),
+        _triStripMinSize(2),
+        _generateTangentSpace(false),
+        _tangentUnit(0),
+        _maxIndexValue(65535),
+        _wireframe("")
+    {}
+
+    // run the optimizer
+    osg::Node* optimize(osg::Node& node);
+
+    // handle options
+    void setUseDrawArray(bool s) { _useDrawArray = s; }
+
+    void setDisableTriStrip(bool s) { _disableTriStrip = s; }
+    void setDisableMergeTriStrip(bool s) { _disableMergeTriStrip = s; }
+    void setDisablePreTransform(bool s) { _disablePreTransform = s; }
+    void setTripStripCacheSize(unsigned int size) { _triStripCacheSize = size; }
+    void setTripStripMinSize(unsigned int size) { _triStripMinSize = std::max<unsigned int>(size, 2); }
+
+    void setTexCoordChannelForTangentSpace(int uv) {
+        _tangentUnit = uv;
+        _generateTangentSpace = true;
+    }
+
+    void setMaxIndexValue(unsigned int s) { _maxIndexValue = s; }
+    void setWireframe(std::string const& s) {
+        _wireframe = s;
+        if(_wireframe == std::string("outline")) {
+            // no use to build strip if we only want wireframe
+            setDisableTriStrip(true);
+        }
+    }
+
+protected:
+    bool _useDrawArray;
+
+    bool _disableTriStrip;
+    bool _disableMergeTriStrip;
+    bool _disablePreTransform;
+    unsigned int _triStripCacheSize;
+    unsigned int _triStripMinSize;
+
+    bool _generateTangentSpace;
+    int _tangentUnit;
+
+    unsigned int _maxIndexValue;
+    std::string _wireframe;
+};
+
+#endif

@@ -1,0 +1,19 @@
+#ifndef ANIMATION_VISITOR
+#define ANIMATION_VISITOR
+
+#include <osgUtil/UpdateVisitor>
+#include <osgAnimation/UpdateMatrixTransform>
+#include <osgAnimation/AnimationManagerBase>
+#include <osgAnimation/BasicAnimationManager>
+
+
+// the idea is to create true Geometry if skeleton with RigGeometry
+class AnimationVisitor : public osgUtil::UpdateVisitor
+{
+public:
+    AnimationVisitor() {
+        setFrameStamp(new osg::FrameStamp());
+    }
+};
+
+#endif

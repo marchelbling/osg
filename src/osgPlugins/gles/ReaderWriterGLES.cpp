@@ -1,15 +1,20 @@
-//    copyright: 'Cedric Pinson cedric@plopbyte.com'
-#include <osg/Image>
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson
+ *
+ * This application is open source and may be redistributed and/or modified
+ * freely and without restriction, both in commercial and non commercial
+ * applications, as long as this copyright notice is maintained.
+ *
+ * This application is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+*/
+
 #include <osg/Notify>
 #include <osg/Geode>
-#include <osg/GL>
 #include <osg/Version>
 #include <osg/Endian>
-#include <osg/Projection>
-#include <osg/MatrixTransform>
-#include <osg/PositionAttitudeTransform>
 
-#include <osgUtil/UpdateVisitor>
 #include <osgDB/ReaderWriter>
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
@@ -18,54 +23,43 @@
 #include <osgDB/FileUtils>
 #include <osgDB/FileNameUtils>
 
-#include <osgAnimation/UpdateMatrixTransform>
-#include <osgAnimation/AnimationManagerBase>
-#include <osgAnimation/BasicAnimationManager>
-
-#include <sstream>
-#include <cassert>
-#include <map>
+#include <string>
 
 #include "UnIndexMeshVisitor"
-#include "TangentSpace"
-#include "GeometryOperation"
+#include "OpenGLESGeometryOptimizer"
 
 using namespace osg;
 
-
-// the idea is to create true Geometry if skeleton with RigGeometry
-struct FakeUpdateVisitor : public osgUtil::UpdateVisitor
-{
-    FakeUpdateVisitor() {
-        setFrameStamp(new osg::FrameStamp());
-    }
-};
 
 class ReaderWriterGLES : public osgDB::ReaderWriter
 {
 public:
 
      struct OptionsStruct {
-         bool enableWireframe;
+         std::string enableWireframe;
          bool generateTangentSpace;
          int tangentSpaceTextureUnit;
          bool disableTriStrip;
          bool disableMergeTriStrip;
+         bool disablePreTransform;
          unsigned int triStripCacheSize;
          unsigned int triStripMinSize;
          bool useDrawArray;
          bool disableIndex;
+         unsigned int maxIndexValue;
 
          OptionsStruct() {
-             enableWireframe = false;
+             enableWireframe = "";
              generateTangentSpace = false;
              tangentSpaceTextureUnit = 0;
              disableTriStrip = false;
              disableMergeTriStrip = false;
+             disablePreTransform = false;
              triStripCacheSize = 16;
              triStripMinSize = 2;
              useDrawArray = false;
              disableIndex = false;
+             maxIndexValue = 0;
          }
     };
 
@@ -74,54 +68,49 @@ public:
     {
         supportsExtension("gles","OpenGL ES optimized format");
 
-        supportsOption("enableWireframe","create a wireframe geometry for each triangles geometry");
+        supportsOption("enableWireframe[=inline]","create a wireframe geometry for each triangles geometry. The wire geometry will be stored along the solid geometry if 'inline' is specified.");
         supportsOption("generateTangentSpace","Build tangent space to each geometry");
         supportsOption("tangentSpaceTextureUnit=<unit>","Specify on wich texture unit normal map is");
         supportsOption("triStripCacheSize=<int>","set the cache size when doing tristrip");
         supportsOption("triStripMinSize=<int>","set the minimum accepted length for a strip");
         supportsOption("disableMergeTriStrip","disable the merge of all tristrip into one");
         supportsOption("disableTriStrip","disable generation of tristrip");
+        supportsOption("disablePreTransform","disable pre-transform of geometries after split");
         supportsOption("useDrawArray","prefer drawArray instead of drawelement with split of geometry");
         supportsOption("disableIndex","Do not index the geometry");
+        supportsOption("maxIndexValue=<int>","set the maximum index value (first index is 0)");
     }
 
     virtual const char* className() const { return "GLES Optimizer"; }
 
     virtual osg::Node* optimizeModel(const Node& node, const OptionsStruct& options) const
     {
-        // process regular model
-        osg::ref_ptr<osg::Node> model = osg::clone(&node);
-        FakeUpdateVisitor fakeUpdateVisitor;
-        model->accept(fakeUpdateVisitor);
+        osg::Node* model = osg::clone(&node);
 
-        GeometryWireframeVisitor wireframer;
-        if (options.enableWireframe)
-            model->accept(wireframer);
-
-        OpenGLESGeometryOptimizerVisitor visitor;
-
-        // generated in model when indexed
-        if (options.generateTangentSpace) {
-            visitor.setTexCoordChannelForTangentSpace(options.tangentSpaceTextureUnit);
-        }
-
-        visitor.setUseDrawArray(options.useDrawArray);
-        visitor.setTripStripCacheSize(options.triStripCacheSize);
-        visitor.setTripStripMinSize(options.triStripMinSize);
-        visitor.setDisableTriStrip(options.disableTriStrip);
-        visitor.setDisableMergeTriStrip(options.disableMergeTriStrip);
-        model->accept(visitor);
-
-        osg::notify(osg::NOTICE) << "SceneNbIndexedTriangles:" << visitor._sceneNbTriangles << std::endl;
-        osg::notify(osg::NOTICE) << "SceneNbIndexedVertexes:" << visitor._sceneNbVertexes << std::endl;
-
-        if (options.disableIndex)
-        {
+        if (options.disableIndex) {
             UnIndexMeshVisitor unindex;
             model->accept(unindex);
         }
+        else {
+            OpenGLESGeometryOptimizer optimizer;
 
-        return model.release();
+            optimizer.setUseDrawArray(options.useDrawArray);
+            optimizer.setTripStripCacheSize(options.triStripCacheSize);
+            optimizer.setTripStripMinSize(options.triStripMinSize);
+            optimizer.setDisableTriStrip(options.disableTriStrip);
+            optimizer.setDisableMergeTriStrip(options.disableMergeTriStrip);
+            optimizer.setDisablePreTransform(options.disablePreTransform);
+            optimizer.setWireframe(options.enableWireframe);
+            if (options.generateTangentSpace) {
+                optimizer.setTexCoordChannelForTangentSpace(options.tangentSpaceTextureUnit);
+            }
+            if(options.maxIndexValue) {
+                optimizer.setMaxIndexValue(options.maxIndexValue);
+            }
+
+            model = optimizer.optimize(*model);
+        }
+        return model;
     }
 
 
@@ -210,7 +199,12 @@ public:
 
                 if (pre_equals == "enableWireframe")
                 {
-                    localOptions.enableWireframe = true;
+                    if(post_equals == "inline") {
+                        localOptions.enableWireframe = "inline";
+                    }
+                    else {
+                        localOptions.enableWireframe = "outline";
+                    }
                 }
                 if (pre_equals == "useDrawArray")
                 {
@@ -219,6 +213,10 @@ public:
                 if (pre_equals == "disableMergeTriStrip")
                 {
                     localOptions.disableMergeTriStrip = true;
+                }
+                if (pre_equals == "disablePreTransform")
+                {
+                    localOptions.disablePreTransform = true;
                 }
                 if (pre_equals == "disableTriStrip")
                 {
@@ -233,8 +231,7 @@ public:
                     localOptions.disableIndex = true;
                 }
 
-                if (post_equals.length()>0)
-                {
+                if (post_equals.length() > 0) {
                     if (pre_equals == "tangentSpaceTextureUnit") {
                         localOptions.tangentSpaceTextureUnit = atoi(post_equals.c_str());
                     }
@@ -243,6 +240,9 @@ public:
                     }
                     if (pre_equals == "triStripMinSize") {
                         localOptions.triStripMinSize = atoi(post_equals.c_str());
+                    }
+                    if (pre_equals == "maxIndexValue") {
+                        localOptions.maxIndexValue = atoi(post_equals.c_str());
                     }
                 }
             }

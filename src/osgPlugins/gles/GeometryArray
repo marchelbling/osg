@@ -307,33 +307,31 @@ struct GeometryArrayList {
             geom.setVertexArray(_vertexes.get());
 
         if (_normals.valid()) {
-            geom.setNormalArray(_normals.get());
-            geom.setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+            geom.setNormalArray(_normals.get(), osg::Array::BIND_PER_VERTEX);
         }
 
         if (_colors.valid()) {
-            geom.setColorArray(_colors.get());
-            geom.setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+            geom.setColorArray(_colors.get(), osg::Array::BIND_PER_VERTEX);
         }
 
         if (_secondaryColors.valid()) {
-            geom.setSecondaryColorArray(_secondaryColors.get());
-            geom.setSecondaryColorBinding(osg::Geometry::BIND_PER_VERTEX);
+            geom.setSecondaryColorArray(_secondaryColors.get(), osg::Array::BIND_PER_VERTEX);
         }
 
         if (_fogCoords.valid()) {
-            geom.setFogCoordArray(_fogCoords.get());
-            geom.setFogCoordBinding(osg::Geometry::BIND_PER_VERTEX);
+            geom.setFogCoordArray(_fogCoords.get(), osg::Array::BIND_PER_VERTEX);
         }
 
         for (unsigned int i = 0; i < _texCoordArrays.size(); ++i) {
-            if (_texCoordArrays[i].valid())
-                geom.setTexCoordArray(i, _texCoordArrays[i].get());
+            if (_texCoordArrays[i].valid()) {
+                geom.setTexCoordArray(i, _texCoordArrays[i].get(), osg::Array::BIND_PER_VERTEX);
+            }
         }
 
         for (unsigned int i = 0; i < _attributesArrays.size(); ++i) {
-            if (_attributesArrays[i].valid())
-                geom.setVertexAttribArray(i, _attributesArrays[i].get());
+            if (_attributesArrays[i].valid()) {
+                geom.setVertexAttribArray(i, _attributesArrays[i].get(), osg::Array::BIND_PER_VERTEX);
+            }
         }
     }
 };

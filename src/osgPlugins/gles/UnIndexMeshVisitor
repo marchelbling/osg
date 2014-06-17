@@ -10,25 +10,16 @@
 *
 */
 
-#ifndef UNINDEX_MESH_VISITOR_H
-#define UNINDEX_MESH_VISITOR_H
+#ifndef UNINDEX_MESH_VISITOR
+#define UNINDEX_MESH_VISITOR
 
-#include <osg/NodeVisitor>
-#include <osg/Geode>
+#include "GeometryUniqueVisitor"
 
-class UnIndexMeshVisitor : public osg::NodeVisitor
+
+class UnIndexMeshVisitor : public GeometryUniqueVisitor
 {
 public:
-    UnIndexMeshVisitor() : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {}
-
-    void apply(osg::Geode& geode) {
-        for (unsigned int i = 0; i < geode.getNumDrawables(); i++) {
-            apply(*geode.getDrawable(i));
-        }
-    }
-
-    void apply(osg::Drawable& drw);
-    void apply(osg::Geometry& drw);
+    void apply(osg::Geometry& geom);
 };
 
 #endif

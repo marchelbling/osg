@@ -11,65 +11,20 @@
 */
 
 #include <osg/Geometry>
-#include <osg/TriangleIndexFunctor>
 #include <osg/PrimitiveSet>
-#include "LineIndexFunctor"
-#include "PointIndexFunctor"
+
 #include "UnIndexMeshVisitor"
 #include "GeometryArray"
-
+#include "PrimitiveIndexors"
 
 typedef std::vector<unsigned int> IndexList;
 // this help works only for indexed primitive to unindex it
 
 
-struct ExtractIndex
-{
-    IndexList _indexes;
-
-    // for points
-    inline void operator() ( const unsigned int& i) {
-        _indexes.push_back(i);
-    }
-
-    // for lines
-    inline void operator() ( const unsigned int& i, const unsigned int& i1) {
-
-        _indexes.push_back(i);
-        _indexes.push_back(i1);
-    }
-
-    // for triangles
-    inline void operator() ( const unsigned int& i, const unsigned int& i1 , const unsigned int &i2 ) {
-
-        _indexes.push_back(i);
-        _indexes.push_back(i1);
-        _indexes.push_back(i2);
-    }
-
-};
-
-
-typedef osg::TriangleIndexFunctor<ExtractIndex> UnIndexedTriangleFunctor;
-typedef LineIndexFunctor<ExtractIndex> UnIndexedLineFunctor;
-typedef PointIndexFunctor<ExtractIndex> UnIndexedPointFunctor;
-
-void UnIndexMeshVisitor::apply(osg::Drawable& drw) 
-{
-    osg::Geometry* geom = drw.asGeometry();
-    if (!geom) {
-        return;
-    }
-    apply(*geom);
-}
-
-
 void UnIndexMeshVisitor::apply(osg::Geometry& geom) 
 {
-
     // no point optimizing if we don't have enough vertices.
     if (!geom.getVertexArray()) return;
-
 
     // check for the existence of surface primitives
     unsigned int numIndexedPrimitives = 0;
@@ -116,15 +71,17 @@ void UnIndexMeshVisitor::apply(osg::Geometry& geom)
         {
             // for each geometry list indexes of vertexes
             // to makes triangles
-            UnIndexedTriangleFunctor triangleIndexList;
+            TriangleIndexor triangleIndexList;
             (*itr)->accept(triangleIndexList);
-            
+
             unsigned int index = arrayList.size();
 
             // now copy each vertex to new array, like a draw array
-            arraySrc.append(triangleIndexList._indexes, arrayList);
+            arraySrc.append(triangleIndexList._indices, arrayList);
 
-            newPrimitives.push_back(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES, index, triangleIndexList._indexes.size()));
+            newPrimitives.push_back(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES,
+                                                        index,
+                                                        triangleIndexList._indices.size()));
         }
         break;
 
@@ -133,27 +90,31 @@ void UnIndexMeshVisitor::apply(osg::Geometry& geom)
         case(osg::PrimitiveSet::LINE_STRIP):
         case(osg::PrimitiveSet::LINE_LOOP):
         {
-            UnIndexedLineFunctor linesIndexList;
-            (*itr)->accept(linesIndexList);
+            EdgeIndexor edgesIndexList;
+            (*itr)->accept(edgesIndexList);
 
             unsigned int index = arrayList.size();
 
             // now copy each vertex to new array, like a draw array
-            arraySrc.append(linesIndexList._indexes, arrayList);
+            arraySrc.append(edgesIndexList._indices, arrayList);
 
-            newPrimitives.push_back(new osg::DrawArrays(osg::PrimitiveSet::LINES, index, linesIndexList._indexes.size()));
+            newPrimitives.push_back(new osg::DrawArrays(osg::PrimitiveSet::LINES,
+                                                        index,
+                                                        edgesIndexList._indices.size()));
         }
         break;
         case(osg::PrimitiveSet::POINTS):
         {
-            UnIndexedPointFunctor pointsIndexList;
+            PointIndexor pointsIndexList;
             (*itr)->accept(pointsIndexList);
 
             unsigned int index = arrayList.size();
 
             // now copy each vertex to new array, like a draw array
-            arraySrc.append(pointsIndexList._indexes, arrayList);
-            newPrimitives.push_back(new osg::DrawArrays(osg::PrimitiveSet::POINTS, index, pointsIndexList._indexes.size()));
+            arraySrc.append(pointsIndexList._indices, arrayList);
+            newPrimitives.push_back(new osg::DrawArrays(osg::PrimitiveSet::POINTS,
+                                                        index,
+                                                        pointsIndexList._indices.size()));
         }
         break;
         default:
@@ -163,4 +124,5 @@ void UnIndexMeshVisitor::apply(osg::Geometry& geom)
 
     arrayList.setToGeometry(geom);
     geom.setPrimitiveSetList(newPrimitives);
+    setProcessed(geom);
 }

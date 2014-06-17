@@ -60,7 +60,6 @@ struct GeometryArrayGatherer
     typedef std::vector<osg::Array*> ArrayList;
 
     GeometryArrayGatherer(osg::Geometry& geometry)
-        : _useDrawElements(true)
     {
         add(geometry.getVertexArray());
         add(geometry.getNormalArray());
@@ -97,9 +96,6 @@ struct GeometryArrayGatherer
     }
 
     ArrayList _arrayList;
-    // True if geometry contains bindings that are compatible with
-    // DrawElements.
-    bool _useDrawElements;
 };
 
 // Compare vertices in a mesh using all their attributes. The vertices
