@@ -498,17 +498,16 @@ static osg::Geometry* convertToDrawArray(osg::Geometry& geom)
         {
             osg::DrawArrayLengths* dal = dynamic_cast<osg::DrawArrayLengths*>(ps);
             unsigned int start = dst.size();
-            osg::DrawArrayLengths* ndal = new osg::DrawArrayLengths(dal->getMode(), start);
-            newGeometry->getPrimitiveSetList().push_back(ndal);
             unsigned int offset = dal->getFirst();
+            unsigned int totalDrawArraysVertexes = 0;
             for (unsigned int j = 0; j < dal->size(); j++) {
-                unsigned int nbVertexes = (*dal)[j];
-                ndal->push_back(nbVertexes);
+                totalDrawArraysVertexes += (*dal)[j];
+            }
+            osg::DrawArrays* ndw = new osg::DrawArrays(dal->getMode(), start, totalDrawArraysVertexes);
+            newGeometry->getPrimitiveSetList().push_back(ndw);
 
-                for (unsigned int v = 0; v < nbVertexes; v++) {
-                    srcArrays.append(offset, dst);
-                }
-                offset += nbVertexes;
+            for (unsigned int v = 0; v < totalDrawArraysVertexes; v++) {
+                srcArrays.append(offset + v, dst);
             }
         }
         break;
