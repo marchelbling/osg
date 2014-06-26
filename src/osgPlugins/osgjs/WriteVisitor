@@ -18,11 +18,16 @@
 #include <osg/Material>
 #include <osg/BlendColor>
 #include <osg/BlendFunc>
-#include <sstream>
-#include "JSON_Objects"
+#include <osg/ValueObject>
 
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <map>
+#include <string>
+
+#include "JSON_Objects"
 #include "Animation"
-#include "WriteVisitor"
 
 #define WRITER_VERSION 7
 
@@ -33,8 +38,6 @@ class WriteVisitor : public osg::NodeVisitor
 public:
     typedef std::vector<osg::ref_ptr<osg::StateSet> > StateSetStack;
 
-    std::ofstream _mergeBinaryFile;
-
     std::map<osg::ref_ptr<osg::Object>, osg::ref_ptr<JSONObject> > _maps;
     std::vector<osg::ref_ptr<JSONObject> > _parents;
     osg::ref_ptr<JSONObject> _root;
@@ -44,6 +47,15 @@ public:
     bool _mergeAllBinaryFiles;
     bool _inlineImages;
     int _maxTextureDimension;
+    std::vector<std::string> _specificBuffers;
+    std::map<std::string, std::ofstream*> _buffers;
+
+    std::ofstream& getBufferFile(const std::string& name) {
+        if(_buffers.find(name) == _buffers.end()) {
+            _buffers[name] = new std::ofstream(name.c_str(), std::ios::binary);
+        }
+        return *_buffers[name];
+    }
 
     WriteVisitor(): osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {
         _mergeAllBinaryFiles = false;
@@ -51,9 +63,38 @@ public:
         _inlineImages = false;
         _maxTextureDimension = 0;
     }
-    std::string getBinaryFilename() {
-        return std::string(_baseName) +".bin";
+
+    ~WriteVisitor() {
+        for(std::map<std::string, std::ofstream*>::iterator buffer = _buffers.begin() ;
+            buffer != _buffers.end() ; ++ buffer) {
+            delete buffer->second;
+        }
     }
+
+    std::string getBinaryFilename(const std::string& buffer = "") {
+        std::string suffix;
+        if(!buffer.empty()) {
+            suffix = "_" + buffer;
+        }
+        return std::string(_baseName) + suffix + ".bin";
+    }
+
+    void closeBuffers() {
+        for(std::map<std::string, std::ofstream*>::iterator buffer = _buffers.begin() ;
+            buffer != _buffers.end() ; ++ buffer) {
+            buffer->second->close();
+        }
+    }
+
+    unsigned int getBuffersSize() {
+        unsigned int size = 0;
+        for(std::map<std::string, std::ofstream*>::iterator buffer = _buffers.begin() ;
+            buffer != _buffers.end() ; ++ buffer) {
+            size += buffer->second->tellp();
+        }
+        return size;
+    }
+
     void write(std::ostream& str) {
         osg::ref_ptr<JSONObject> o = new JSONObject();
         o->getMaps()["Version"] = new JSONValue<int>(WRITER_VERSION);
@@ -61,8 +102,8 @@ public:
         o->getMaps()["osg.Node"] = _root.get();
         o->write(str, *this);
         if (_mergeAllBinaryFiles) {
-            _mergeBinaryFile.close();
-            unsigned int size = _mergeBinaryFile.tellp();
+            closeBuffers();
+            unsigned int size = getBuffersSize();
             osg::notify(osg::NOTICE) << "Use a merged binary file ";
             if (size/1024.0 < 1.0) {
                 osg::notify(osg::NOTICE) << size << " bytes" << std::endl;
@@ -78,6 +119,37 @@ public:
         throw "Error occur";
     }
 
+    void setBufferName(JSONObject *json, osg::Geometry* geometry) {
+        if(!_mergeAllBinaryFiles || _specificBuffers.empty())
+            return;
+        std::string bufferName = getBufferName(geometry);
+        std::string defaultBufferName = getBinaryFilename();
+        std::string jsonBufferName = json->getBufferName();
+        // if the buffer is shared we will always favor dumping it in the default
+        // buffer and otherwise we keep the first buffer name set.
+        if(!jsonBufferName.empty()) {
+            if(jsonBufferName != defaultBufferName && bufferName == defaultBufferName) {
+                json->setBufferName(defaultBufferName);
+            }
+        }
+        else {
+            json->setBufferName(bufferName);
+        }
+    }
+
+    std::string getBufferName(osg::Geometry* geometry) {
+        std::string name("");
+        bool isSpecific = false;
+        for(std::vector<std::string>::iterator it_flag = _specificBuffers.begin() ;
+            it_flag != _specificBuffers.end() ; ++ it_flag) {
+            if(geometry->getUserValue(*it_flag, isSpecific) && isSpecific) {
+                name = *it_flag;
+                break;
+            }
+        }
+        return getBinaryFilename(name);
+    }
+
     JSONObject* createJSONStateSet(osg::StateSet* ss);
     JSONObject* createJSONTexture(osg::Texture* sa);
     JSONObject* createJSONMaterial(osg::Material* sa);
@@ -85,15 +157,16 @@ public:
     JSONObject* createJSONCullFace(osg::CullFace* sa);
     JSONObject* createJSONBlendColor(osg::BlendColor* sa);
     JSONObject* createJSONBlendFunc(osg::BlendFunc* sa);
-    JSONObject* createJSONBufferArray(osg::Array* array);
-    JSONObject* createJSONDrawElements(osg::DrawArrays* drawArray);
 
-    JSONObject* createJSONDrawElementsUInt(osg::DrawElementsUInt* de);
-    JSONObject* createJSONDrawElementsUShort(osg::DrawElementsUShort* de);
-    JSONObject* createJSONDrawElementsUByte(osg::DrawElementsUByte* de);
+    JSONObject* createJSONBufferArray(osg::Array* array, osg::Geometry* geom = 0);
+    JSONObject* createJSONDrawElements(osg::DrawArrays* drawArray, osg::Geometry* geom = 0);
 
-    JSONObject* createJSONDrawArray(osg::DrawArrays* drawArray);
-    JSONObject* createJSONDrawArrayLengths(osg::DrawArrayLengths* drawArray);
+    JSONObject* createJSONDrawElementsUInt(osg::DrawElementsUInt* de, osg::Geometry* geom = 0);
+    JSONObject* createJSONDrawElementsUShort(osg::DrawElementsUShort* de, osg::Geometry* geom = 0);
+    JSONObject* createJSONDrawElementsUByte(osg::DrawElementsUByte* de, osg::Geometry* geom = 0);
+
+    JSONObject* createJSONDrawArray(osg::DrawArrays* drawArray, osg::Geometry* geom = 0);
+    JSONObject* createJSONDrawArrayLengths(osg::DrawArrayLengths* drawArray, osg::Geometry* geom = 0);
 
     JSONObject* createJSONGeometry(osg::Geometry* geom);
 
@@ -327,11 +400,13 @@ public:
         traverse(node);
         _parents.pop_back();
     }
+
     void setBaseName(const std::string& basename) { _baseName = basename; }
     void useExternalBinaryArray(bool use) { _useExternalBinaryArray = use; }
     void mergeAllBinaryFiles(bool use) { _mergeAllBinaryFiles = use; }
     void inlineImages(bool use) { _inlineImages = use; }
     void setMaxTextureDimension(int use) { _maxTextureDimension = use; }
-
+    void addSpecificBuffer(const std::string& bufferFlag) { _specificBuffers.push_back(bufferFlag); }
 };
+
 #endif

@@ -60,14 +60,18 @@ struct JSONObject : public JSONObjectBase
         return dynamic_cast<JSONValue<T> * > ( this); 
     }
 
-    JSONObject(const unsigned int id);
+    JSONObject(const unsigned int id, const std::string& bufferName = "");
     JSONObject();
     void addUniqueID();
     unsigned int getUniqueID() const { return _uniqueID; }
-    JSONObject* getShadowObject() { return new JSONObject(_uniqueID); }
+    JSONObject* getShadowObject() { return new JSONObject(_uniqueID, _bufferName); }
 
     unsigned int _uniqueID;
     static unsigned int uniqueID;
+
+    std::string _bufferName;
+    virtual void setBufferName(const std::string& name) { _bufferName = name; }
+    std::string getBufferName() { return _bufferName; }
 };
 
 JSONObject* createLight(osg::Light* light);
@@ -162,7 +166,7 @@ struct JSONValue<std::string> : public JSONObject
     }
 
     protected:
-        std::string jsonEscape(std::string const& input) {
+        std::string jsonEscape(const std::string& input) {
             std::string value = input;
             replace(value, std::string("\\"), std::string("\\\\"));
             replace(value, std::string("\""), std::string("\\\""));
@@ -203,7 +207,9 @@ struct JSONVertexArray : public JSONArray
     osg::ref_ptr<const osg::Array> _arrayData;
     std::string _filename;
 
-    std::pair<unsigned int, unsigned int> writeMergeData(const osg::Array* array, WriteVisitor &visitor);
+    std::pair<unsigned int, unsigned int> writeMergeData(const osg::Array* array,
+                                                         WriteVisitor &visitor,
+                                                         const std::string& filename);
     unsigned int writeData(const osg::Array* array, const std::string& filename) 
     {
         std::ofstream myfile;
@@ -253,6 +259,11 @@ struct JSONBufferArray : public JSONObject
         getMaps()["ItemSize"] = new JSONValue<int>(array->getDataSize());
         getMaps()["Type"] = new JSONValue<std::string>("ARRAY_BUFFER"); //0x8892);
     }
+
+    void setBufferName(const std::string& bufferName) {
+        JSONObject::setBufferName(bufferName);
+        getMaps()["Array"]->setBufferName(bufferName);
+    }
 };
 
 
@@ -266,6 +277,11 @@ struct JSONDrawArray : public JSONObject
 struct JSONDrawArrayLengths : public JSONObject
 {
     JSONDrawArrayLengths(osg::DrawArrayLengths& array);
+
+    void setBufferName(const std::string& bufferName) {
+        JSONObject::setBufferName(bufferName);
+        getMaps()["ArrayLengths"]->setBufferName(bufferName);
+    }
 };
 
 
@@ -273,7 +289,6 @@ template <class T>
 struct JSONDrawElements : public JSONObject
 {
     JSONDrawElements(T& array) {
-
         osg::ref_ptr<osg::UShortArray> idxArray;
         if (array.getMode() == GL_QUADS) {
             int size = array.getNumIndices();
@@ -303,6 +318,10 @@ struct JSONDrawElements : public JSONObject
         getMaps()["Indices"] = buf;
     }
 
+    void setBufferName(const std::string& bufferName) {
+        JSONObject::setBufferName(bufferName);
+        getMaps()["Indices"]->setBufferName(bufferName);
+    }
 };
 
 #endif

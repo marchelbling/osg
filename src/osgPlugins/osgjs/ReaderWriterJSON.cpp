@@ -22,9 +22,7 @@
 #include <osgAnimation/AnimationManagerBase>
 #include <osgAnimation/BasicAnimationManager>
 
-#include <sstream>
-#include <cassert>
-#include <map>
+#include <vector>
 
 #include "JSON_Objects"
 #include "Animation"
@@ -45,6 +43,7 @@ public:
          bool useExternalBinaryArray;
          bool mergeAllBinaryFiles;
          bool inlineImages;
+         std::vector<std::string> useSpecificBuffer;
 
          OptionsStruct() {
              resizeTextureUpToPowerOf2 = 0;
@@ -62,6 +61,7 @@ public:
         supportsOption("useExternalBinaryArray","create binary files for vertex arrays");
         supportsOption("mergeAllBinaryFiles","merge all binary files into one to avoid multi request on a server");
         supportsOption("inlineImages","insert base64 encoded images instead of referring to them");
+        supportsOption("useSpecificBuffer=uservalue1,uservalue2","uses specific buffers for unshared buffers attached to geometries having a specified user value");
     }
 
     virtual const char* className() const { return "OSGJS json Writer"; }
@@ -115,6 +115,10 @@ public:
             writer.mergeAllBinaryFiles(options.mergeAllBinaryFiles);
             writer.inlineImages(options.inlineImages);
             writer.setMaxTextureDimension(options.resizeTextureUpToPowerOf2);
+            for(std::vector<std::string>::const_iterator specificBuffer = options.useSpecificBuffer.begin() ;
+                specificBuffer != options.useSpecificBuffer.end() ; ++ specificBuffer) {
+                writer.addSpecificBuffer(*specificBuffer);
+            }
             model->accept(writer);
             if (writer._root.valid()) {
                 writer.write(fout);
@@ -167,12 +171,23 @@ public:
                     localOptions.inlineImages = true;
                 }
 
-                if (post_equals.length() > 0)
+                if (pre_equals == "resizeTextureUpToPowerOf2" && post_equals.length() > 0)
                 {
                     int value = atoi(post_equals.c_str());
-                    if (pre_equals == "resizeTextureUpToPowerOf2") {
-                        localOptions.resizeTextureUpToPowerOf2 = osg::Image::computeNearestPowerOfTwo(value);
+                    localOptions.resizeTextureUpToPowerOf2 = osg::Image::computeNearestPowerOfTwo(value);
+                }
+
+                if (pre_equals == "useSpecificBuffer" && !post_equals.empty())
+                {
+                    size_t stop_pos = 0, start_pos = 0;
+                    while((stop_pos = post_equals.find(",", start_pos)) != std::string::npos) {
+                        localOptions.useSpecificBuffer.push_back(post_equals.substr(start_pos,
+                                                                                    stop_pos - start_pos));
+                        start_pos = stop_pos + 1;
+                        ++ stop_pos;
                     }
+                    localOptions.useSpecificBuffer.push_back(post_equals.substr(start_pos,
+                                                                                post_equals.length() - start_pos));
                 }
             }
         }

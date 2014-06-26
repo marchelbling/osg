@@ -53,18 +53,19 @@ void JSONNode::write(std::ostream& str, WriteVisitor& visitor)
     writeOrder(str, order, visitor);
 }
 
-JSONObject::JSONObject(const unsigned int id)
+JSONObject::JSONObject(const unsigned int id, const std::string& bufferName)
 {
     _uniqueID = id;
+    _bufferName = bufferName;
     _maps["UniqueID"] = new JSONValue<unsigned int>(id);
 }
 
-JSONObject::JSONObject() 
+JSONObject::JSONObject()
 {
     _uniqueID = -1;
 }
 
-void JSONObject::addUniqueID() 
+void JSONObject::addUniqueID()
 {
     _uniqueID = JSONObject::uniqueID++;
     _maps["UniqueID"] = new JSONValue<unsigned int>(_uniqueID);
@@ -125,21 +126,20 @@ void JSONObject::write(std::ostream& str, WriteVisitor& visitor)
 }
 
 
-std::pair<unsigned int,unsigned int> JSONVertexArray::writeMergeData(const osg::Array* array, WriteVisitor &visitor)
+std::pair<unsigned int,unsigned int> JSONVertexArray::writeMergeData(const osg::Array* array,
+                                                                     WriteVisitor &visitor,
+                                                                     const std::string& filename)
 {
-    if (!visitor._mergeBinaryFile.is_open()) {
-        std::string filename = visitor.getBinaryFilename();
-        visitor._mergeBinaryFile.open(filename.c_str(), std::ios::binary );
-    }
-    unsigned int offset = visitor._mergeBinaryFile.tellp();
+    std::ofstream& output = visitor.getBufferFile(filename);
+    unsigned int offset = output.tellp();
     const char* b = static_cast<const char*>(array->getDataPointer());
-    visitor._mergeBinaryFile.write(b, array->getTotalDataSize());
-    unsigned int fsize = visitor._mergeBinaryFile.tellp(); 
+    output.write(b, array->getTotalDataSize());
+    unsigned int fsize = output.tellp();
 
     // pad to 4 bytes
     unsigned int diff = fsize - (fsize/4) * 4;
     if (diff > 0) {
-        visitor._mergeBinaryFile.write(b, diff);
+        output.write(b, diff);
     }
     return std::pair<unsigned int, unsigned int>(offset, fsize-offset);
 }
@@ -154,14 +154,18 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
 
     std::stringstream url;
     if (visitor._useExternalBinaryArray) {
+        std::string bufferName = getBufferName();
+        if(bufferName.empty())
+            bufferName = visitor.getBinaryFilename();
+
         if (visitor._mergeAllBinaryFiles)
-            url << visitor.getBinaryFilename();
+            url << bufferName;
         else
             url << basename << "_" << _uniqueID << ".bin";
     }
 
     std::string type;
-        
+
     osg::ref_ptr<const osg::Array> array = _arrayData;
 
     switch (array->getType()) {
@@ -293,7 +297,7 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
         unsigned int size;
         if (_mergeAllBinaryFiles) {
             std::pair<unsigned int, unsigned int> result;
-            result = writeMergeData(array.get(), visitor);
+            result = writeMergeData(array.get(), visitor, url.str());
             unsigned int offset = result.first;
             size = result.second;
             str << JSONObjectBase::indent() << "\"Offset\": " << offset << std::endl;
