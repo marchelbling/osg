@@ -155,6 +155,32 @@ public:
         return node.release();
     }
 
+    virtual osgDB::ReaderWriter::WriteResult writeNode(const Node& node,
+                                                       const std::string& fileName,
+                                                       const osgDB::ReaderWriter::Options* options) const
+    {
+      std::string ext = osgDB::getLowerCaseFileExtension(fileName);
+      if (!acceptsExtension(ext))
+        return WriteResult::FILE_NOT_HANDLED;
+
+      std::string realFileName = osgDB::getNameLessExtension(fileName);
+      if(realFileName.empty())
+          return WriteResult::FILE_NOT_HANDLED;
+
+      // gles optimization
+      OptionsStruct _options;
+      _options = parseOptions(options);
+      ref_ptr<Node> optimizedNode = optimizeModel(node, _options);
+
+      // forward writing to next plugin
+      ref_ptr<ReaderWriter> rw = getReaderWriter(realFileName);
+      if(rw) {
+          return rw->writeNode(*optimizedNode, realFileName, options);
+      }
+      else {
+          return WriteResult::ERROR_IN_WRITING_FILE;
+      }
+    }
 
     ReaderWriterGLES::OptionsStruct parseOptions(const osgDB::ReaderWriter::Options* options) const
     {
@@ -223,8 +249,31 @@ public:
         }
         return localOptions;
     }
-protected:
 
+protected:
+    osgDB::Options* handleFileWriterOption(const osgDB::Options* options,
+                                          std::string const& fileName) const
+    {
+        std::string ext = osgDB::getLowerCaseFileExtension(fileName);
+        std::string opt;
+        if(options) {
+            opt = options->getOptionString();
+        }
+
+        if(ext == std::string("osgt") && opt.find("Ascii") == std::string::npos)
+            opt += " Ascii";
+        if(ext == std::string("osgx") && opt.find("XML") == std::string::npos)
+            opt += " XML";
+
+        return new osgDB::Options(opt);
+    }
+
+    ReaderWriter* getReaderWriter(std::string const& fileName) const
+    {
+        ref_ptr<osgDB::Registry> registry = osgDB::Registry::instance();
+        std::string ext = osgDB::getLowerCaseFileExtension(fileName);
+        return registry->getReaderWriterForExtension(ext);
+    }
 };
 
 // now register with Registry to instantiate the above

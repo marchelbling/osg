@@ -68,7 +68,9 @@ public:
 
     virtual ReadResult readNode(const std::string& fileName, const Options* options) const;
 
-    virtual WriteResult writeNode(const Node& node, const std::string& fileName, const osgDB::ReaderWriter::Options* options) const
+    virtual WriteResult writeNode(const Node& node,
+                                  const std::string& fileName,
+                                  const osgDB::ReaderWriter::Options* options) const
     {
         std::string ext = osgDB::getFileExtension(fileName);
         if (!acceptsExtension(ext)) return WriteResult::FILE_NOT_HANDLED;
@@ -87,7 +89,9 @@ public:
         return WriteResult("Unable to open file for output");
     }
 
-    virtual WriteResult writeNode(const Node& node, std::ostream& fout, const osgDB::ReaderWriter::Options* options) const
+    virtual WriteResult writeNode(const Node& node,
+                                  std::ostream& fout,
+                                  const osgDB::ReaderWriter::Options* options) const
     {
         if (!fout) {
             return WriteResult("Unable to write to output stream");
