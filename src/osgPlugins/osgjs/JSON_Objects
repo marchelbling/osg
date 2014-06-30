@@ -158,9 +158,11 @@ template <>
 struct JSONValue<std::string> : public JSONObject
 {
     std::string _value;
+
     JSONValue(const std::string& v) {
         _value = jsonEscape(v);
     }
+
     void write(std::ostream& str, WriteVisitor& visitor) {
         str << '"' << _value  << '"';
     }

@@ -173,21 +173,48 @@ void translateObject(JSONObject* json, osg::Object* osg)
         jsonUDC->getMaps()["Values"] = jsonUDCArray;
         for (unsigned int i = 0; i < osg->getUserDataContainer()->getNumUserObjects(); i++) {
             osg::Object* o = osg->getUserDataContainer()->getUserObject(i);
-            typedef osg::TemplateValueObject<std::string> ValueObject;
+            std::string name, value;
+            getStringifiedUserValue(o, name, value);
+            if(!name.empty() && !value.empty())
             {
-                ValueObject* uv = dynamic_cast<ValueObject* >(o);
-                if (uv) {
-                    JSONObject* jsonEntry = new JSONObject();
-                    jsonEntry->getMaps()["Name"] = new JSONValue<std::string>(uv->getName());
-                    jsonEntry->getMaps()["Value"] = new JSONValue<std::string>(uv->getValue());
-                    jsonUDCArray->getArray().push_back(jsonEntry);
-                }
+                JSONObject* jsonEntry = new JSONObject();
+                jsonEntry->getMaps()["Name"] = new JSONValue<std::string>(name);
+                jsonEntry->getMaps()["Value"] = new JSONValue<std::string>(value);
+                jsonUDCArray->getArray().push_back(jsonEntry);
             }
 
         }
         json->getMaps()["UserDataContainer"] = jsonUDC;
     }
 }
+
+
+void getStringifiedUserValue(osg::Object* o, std::string& name, std::string& value) {
+    if(getStringifiedUserValue<std::string>(o, name, value)) return;
+    if(getStringifiedUserValue<char>(o, name, value)) return;
+    if(getStringifiedUserValue<bool>(o, name, value)) return;
+    if(getStringifiedUserValue<short>(o, name, value)) return;
+    if(getStringifiedUserValue<unsigned short>(o, name, value)) return;
+    if(getStringifiedUserValue<int>(o, name, value)) return;
+    if(getStringifiedUserValue<unsigned int>(o, name, value)) return;
+    if(getStringifiedUserValue<float>(o, name, value)) return;
+    if(getStringifiedUserValue<double>(o, name, value)) return;
+}
+
+
+template<typename T>
+bool getStringifiedUserValue(osg::Object* o, std::string& name, std::string& value) {
+    osg::TemplateValueObject<T>* vo = dynamic_cast< osg::TemplateValueObject<T>* >(o);
+    if (vo) {
+        std::ostringstream oss;
+        oss << vo->getValue();
+        name = vo->getName();
+        value = oss.str();
+        return true;
+    }
+    return false;
+}
+
 
 static JSONValue<std::string>* getJSONWrapMode(osg::Texture::WrapMode mode)
 {
