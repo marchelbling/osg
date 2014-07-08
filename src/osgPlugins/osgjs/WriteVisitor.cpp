@@ -452,7 +452,7 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
             }  else if (primitive->getType() == osg::PrimitiveSet::DrawElementsUBytePrimitiveType) {
                 osg::DrawElementsUByte* da = dynamic_cast<osg::DrawElementsUByte*>((primitive));
                 primitives->getArray().push_back(obj);
-                obj->getMaps()["DrawElementsUShort"] = createJSONDrawElementsUByte(da, geom);
+                obj->getMaps()["DrawElementsUByte"] = createJSONDrawElementsUByte(da, geom);
 
             }  else if (primitive->getType() == osg::PrimitiveSet::DrawArrayLengthsPrimitiveType) {
                 osg::DrawArrayLengths* dal = dynamic_cast<osg::DrawArrayLengths*>((primitive));

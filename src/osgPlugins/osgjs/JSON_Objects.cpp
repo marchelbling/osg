@@ -191,8 +191,40 @@ void JSONVertexArray::write(std::ostream& str, WriteVisitor& visitor)
         type = "Float32Array";
     }
     break;
+    case osg::Array::UByteArrayType:
+    case osg::Array::Vec2ubArrayType:
+    case osg::Array::Vec3ubArrayType:
+        type = "Uint8Array";
+        break;
     case osg::Array::UShortArrayType:
+    case osg::Array::Vec2usArrayType:
+    case osg::Array::Vec3usArrayType:
+    case osg::Array::Vec4usArrayType:
         type = "Uint16Array";
+        break;
+    case osg::Array::UIntArrayType:
+    case osg::Array::Vec2uiArrayType:
+    case osg::Array::Vec3uiArrayType:
+    case osg::Array::Vec4uiArrayType:
+        type = "Uint32Array";
+        break;
+    case osg::Array::ByteArrayType:
+    case osg::Array::Vec2bArrayType:
+    case osg::Array::Vec3bArrayType:
+    case osg::Array::Vec4bArrayType:
+        type = "Int8Array";
+        break;
+    case osg::Array::ShortArrayType:
+    case osg::Array::Vec2sArrayType:
+    case osg::Array::Vec3sArrayType:
+    case osg::Array::Vec4sArrayType:
+        type = "Int16Array";
+        break;
+    case osg::Array::IntArrayType:
+    case osg::Array::Vec2iArrayType:
+    case osg::Array::Vec3iArrayType:
+    case osg::Array::Vec4iArrayType:
+        type = "Int32Array";
         break;
     default:
         osg::notify(osg::WARN) << "Array of type " << array->getType() << " not supported" << std::endl;
