@@ -301,35 +301,52 @@ struct JSONDrawArrayLengths : public JSONObject
 };
 
 
+template<typename T>
+struct BufferArray
+{ typedef osg::UShortArray type; };
+
+#define ADD_INDEX_BUFFER(T, B)\
+template<> \
+struct BufferArray<T> \
+{ typedef B type; }
+
+ADD_INDEX_BUFFER(osg::DrawElementsUInt, osg::UIntArray);
+ADD_INDEX_BUFFER(osg::DrawElementsUByte, osg::UByteArray);
+
+
 template <class T>
 struct JSONDrawElements : public JSONObject
 {
     JSONDrawElements(T& array) {
-        osg::ref_ptr<osg::UShortArray> idxArray;
+        typedef typename BufferArray<T>::type array_type;
+        typedef typename array_type::ElementDataType element_type;
+
+        JSONBufferArray* buf;
+
         if (array.getMode() == GL_QUADS) {
             int size = array.getNumIndices();
-            idxArray = new osg::UShortArray(size);
+            osg::ref_ptr<array_type> buffer = new array_type(size);
             unsigned int idx = 0;
             for (int i = 0; i < size/4; ++i) {
-                (*idxArray)[idx++] = array.index(i*4 + 0);
-                (*idxArray)[idx++] = array.index(i*4 + 1);
-                (*idxArray)[idx++] = array.index(i*4 + 3);
+                (*buffer)[idx++] = static_cast<element_type>(array.index(i*4 + 0));
+                (*buffer)[idx++] = static_cast<element_type>(array.index(i*4 + 1));
+                (*buffer)[idx++] = static_cast<element_type>(array.index(i*4 + 3));
 
-                (*idxArray)[idx++] = array.index(i*4 + 1);
-                (*idxArray)[idx++] = array.index(i*4 + 2);
-                (*idxArray)[idx++] = array.index(i*4 + 3);
+                (*buffer)[idx++] = static_cast<element_type>(array.index(i*4 + 1));
+                (*buffer)[idx++] = static_cast<element_type>(array.index(i*4 + 2));
+                (*buffer)[idx++] = static_cast<element_type>(array.index(i*4 + 3));
             }
+            buf = new JSONBufferArray(buffer.get());
             getMaps()["Mode"] = getDrawMode(osg::PrimitiveSet::TRIANGLES);
-        } else {
-            idxArray = new osg::UShortArray(array.size());
-            int size = array.getNumIndices();
-            for (int i = 0; i < size; ++i) {
-                (*idxArray)[i] = array[i];
-            }
+        }
+        else {
+            osg::ref_ptr<array_type> buffer = new array_type(array.getNumIndices());
+            for(unsigned int i = 0 ; i < array.getNumIndices() ; ++ i)
+                (*buffer)[i] = static_cast<element_type>(array.index(i));
+            buf = new JSONBufferArray(buffer.get());
             getMaps()["Mode"] = getDrawMode(array.getMode());
         }
 
-        JSONBufferArray* buf = new JSONBufferArray(idxArray.get());
         buf->getMaps()["Type"] = new JSONValue<std::string>("ELEMENT_ARRAY_BUFFER");
         getMaps()["Indices"] = buf;
     }
@@ -339,5 +356,6 @@ struct JSONDrawElements : public JSONObject
         getMaps()["Indices"]->setBufferName(bufferName);
     }
 };
+
 
 #endif

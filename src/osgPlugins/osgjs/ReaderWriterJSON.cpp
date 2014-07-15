@@ -26,6 +26,7 @@
 
 #include "JSON_Objects"
 #include "Animation"
+#include "CompactBufferVisitor"
 #include "WriteVisitor"
 
 
@@ -42,6 +43,7 @@ public:
          int resizeTextureUpToPowerOf2;
          bool useExternalBinaryArray;
          bool mergeAllBinaryFiles;
+         bool disableCompactBuffer;
          bool inlineImages;
          bool varint;
          std::vector<std::string> useSpecificBuffer;
@@ -50,6 +52,7 @@ public:
              resizeTextureUpToPowerOf2 = 0;
              useExternalBinaryArray = false;
              mergeAllBinaryFiles = false;
+             disableCompactBuffer = false;
              inlineImages = false;
              varint = false;
          }
@@ -65,6 +68,7 @@ public:
         supportsOption("inlineImages","insert base64 encoded images instead of referring to them");
         supportsOption("varint","Use varint encoding to serialize integer buffers");
         supportsOption("useSpecificBuffer=uservalue1,uservalue2","uses specific buffers for unshared buffers attached to geometries having a specified user value");
+        supportsOption("disableCompactBuffer","keep source types and do not try to optimize buffers size");
     }
 
     virtual const char* className() const { return "OSGJS json Writer"; }
@@ -109,6 +113,11 @@ public:
     {
         // process regular model
         osg::ref_ptr<osg::Node> model = osg::clone(&node);
+
+        if(!options.disableCompactBuffer) {
+            CompactBufferVisitor compact;
+            model->accept(compact);
+        }
 
         WriteVisitor writer;
         try {
@@ -168,6 +177,10 @@ public:
                 if (pre_equals == "mergeAllBinaryFiles")
                 {
                     localOptions.mergeAllBinaryFiles = true;
+                }
+                if (pre_equals == "disableCompactBuffer")
+                {
+                    localOptions.disableCompactBuffer = true;
                 }
 
                 if (pre_equals == "inlineImages")

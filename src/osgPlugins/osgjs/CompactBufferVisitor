@@ -1,0 +1,127 @@
+#ifndef COMPACT_BUFFER_VISITOR
+#define COMPACT_BUFFER_VISITOR
+
+#include <algorithm>
+
+
+////// taken from gles/GeometryUniqueVisitor
+
+#include <osg/NodeVisitor>
+#include <osg/Geometry>
+#include <osg/Geode>
+
+#include <map>
+
+class GeometryUniqueVisitor : public osg::NodeVisitor {
+public:
+    GeometryUniqueVisitor():
+        osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+    {}
+
+    virtual void apply(osg::Geode& geode){
+        for (unsigned int i = 0; i < geode.getNumDrawables(); i++) {
+            apply(*geode.getDrawable(i));
+        }
+    }
+
+    virtual void apply(osg::Drawable& drawable){
+        osg::Geometry* geometry = drawable.asGeometry();
+        if (!geometry || isProcessed(geometry)) {
+            return;
+        }
+        apply(*geometry);
+    }
+
+    virtual void apply(osg::Geometry& geometry) {} // to be implemented by actual visitors
+
+protected:
+    bool isProcessed(osg::Geometry* node) {
+        return _processed.find(node) != _processed.end();
+    }
+
+    bool isProcessed(osg::Geometry& node) {
+        return _processed.find(&node) != _processed.end();
+    }
+
+    void setProcessed(osg::Geometry* node) {
+        _processed.insert(node);
+    }
+
+    void setProcessed(osg::Geometry& node) {
+        _processed.insert(&node);
+    }
+
+    std::set<osg::Geometry*> _processed;
+};
+
+////// end of gles/GeometryUniqueVisitor
+
+
+
+class CompactBufferVisitor : public GeometryUniqueVisitor {
+    public:
+        void apply(osg::Geometry& geometry) {
+            compactPrimitiveSets(geometry);
+        }
+
+
+    protected:
+        void compactPrimitiveSets(osg::Geometry& geometry) {
+            osg::Geometry::PrimitiveSetList& primitives = geometry.getPrimitiveSetList();
+
+            for (unsigned int i = 0 ; i < primitives.size() ; i++) {
+                osg::DrawElementsUInt* de = dynamic_cast<osg::DrawElementsUInt*>(primitives[i].get());
+                if(isProcessed(de)) {
+                    geometry.setPrimitiveSet(i, dynamic_cast<osg::DrawElements*>(getProcessedBuffer(de)));
+                }
+                else {
+                    if(de && de->getNumIndices()) {
+                        unsigned int maximum = maxIndex(de);
+
+                        if(maximum < 256) {
+                            osg::DrawElementsUByte* elements = new osg::DrawElementsUByte(de->getMode());
+                            for (unsigned int j = 0 ; j < de->getNumIndices() ; ++ j) {
+                                elements->push_back(static_cast<GLubyte>(de->index(j)));
+                            }
+                            geometry.setPrimitiveSet(i, elements);
+                            setProcessed(de, elements);
+                        }
+                        else if (maximum < 65536) {
+                            osg::DrawElementsUShort* elements = new osg::DrawElementsUShort(de->getMode());
+                            for (unsigned int j = 0 ; j < de->getNumIndices() ; ++ j) {
+                                elements->push_back(static_cast<GLushort>(de->index(j)));
+                            }
+                            geometry.setPrimitiveSet(i, elements);
+                            setProcessed(de, elements);
+                        }
+                    }
+                }
+            }
+        }
+
+        unsigned int maxIndex(osg::DrawElements* de) {
+            unsigned int maximum = de->index(0);
+            for(unsigned int i = 1 ; i < de->getNumIndices() ; ++ i){
+                maximum = std::max(maximum, static_cast<unsigned int>(de->index(i)));
+            }
+            return maximum;
+        }
+
+        bool isProcessed(osg::Object const* buffer) { return (_processed.find(buffer) != _processed.end()); }
+        void setProcessed(osg::Object const* source, osg::Object* compact)
+        { _processed.insert(std::pair<osg::Object const*, osg::Object*>(source, compact)); }
+
+        osg::Object* getProcessedBuffer(osg::Object const* buffer) {
+            std::map<osg::Object const*, osg::Object*>::iterator it = _processed.find(buffer);
+            if(it == _processed.end()) {
+                return 0;
+            }
+            else {
+                return it->second;
+            }
+        }
+
+        std::map<osg::Object const*, osg::Object*> _processed;
+};
+
+#endif
