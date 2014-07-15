@@ -1,0 +1,226 @@
+/* -*-c++-*- OpenSceneGraph - Copyright (C) Cedric Pinson 
+ *
+ * This application is open source and may be redistributed and/or modified   
+ * freely and without restriction, both in commercial and non commercial
+ * applications, as long as this copyright notice is maintained.
+ * 
+ * This application is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+*/
+
+#include <iomanip>
+#include <map>
+#include <osgUtil/Statistics>
+#include <osg/Geode>
+#include <osg/Geometry>
+
+#include "../meta/picojson.h"
+
+struct StatsVisitor : public osgUtil::StatsVisitor
+{
+    StatsVisitor() {
+        reset();
+    }
+
+    virtual ~StatsVisitor() {
+    }
+
+    virtual void reset() {
+        _numTriangles = _numInstancedTriangles = 0;
+        _numQuads = _numInstancedQuads = 0;
+        _numFaces = _numInstancedFaces = 0;
+        _numTextures = _numInstancedTextures = 0;
+        _primitiveSetsSet.clear();
+        _texturesSet.clear();
+
+        osgUtil::StatsVisitor::reset();
+    }
+
+    void apply(osg::StateSet &ss) {
+        const osg::StateSet::TextureAttributeList& textureAttributes = ss.getTextureAttributeList();
+        for(osg::StateSet::TextureAttributeList::const_iterator it_t = textureAttributes.begin(); it_t != textureAttributes.end(); it_t++) {
+            const osg::StateSet::AttributeList &attributes = *it_t;
+
+            for(osg::StateSet::AttributeList::const_iterator it_a = attributes.begin(); it_a != attributes.end(); it_a++) {
+                osg::ref_ptr<osg::StateAttribute> attribute = it_a->second.first;
+                osg::Texture *texture = attribute->asTexture();
+
+                if (_texturesSet.count(texture) == 0) {
+                    _texturesSet.insert(texture);
+                    _numTextures++;
+                }
+                _numInstancedTextures++;
+            }
+        }
+    }
+
+    virtual void apply(osg::Drawable &drawable)
+    {
+        osg::Geometry* geometry = drawable.asGeometry();
+
+        if (geometry)
+            apply(*geometry);
+
+        osgUtil::StatsVisitor::apply(drawable);
+    }
+
+    virtual void apply(osg::Geometry &geometry)
+    {
+        size_t primitiveSetCount = geometry.getNumPrimitiveSets();
+        for (unsigned int j = 0; j < primitiveSetCount; j++) {
+            osg::PrimitiveSet* primitive = geometry.getPrimitiveSet(j);
+
+            if (primitive)
+                apply(*primitive);
+        }
+    }
+
+    virtual void apply(osg::PrimitiveSet &primitive)
+    {
+        unsigned triangles = 0,
+                 quads = 0;
+        switch (primitive.getMode()) {
+            case osg::PrimitiveSet::TRIANGLES:
+                triangles = primitive.getNumIndices();
+                break;
+            case osg::PrimitiveSet::QUADS:
+                quads = primitive.getNumIndices() * 2;
+                break;
+            case osg::PrimitiveSet::TRIANGLE_STRIP:
+            case osg::PrimitiveSet::TRIANGLE_FAN:
+                triangles = primitive.getNumIndices() - 2;
+                break;
+            case osg::PrimitiveSet::QUAD_STRIP:
+                quads = primitive.getNumIndices() / 2 - 1;
+                break;
+        }
+
+        if (_primitiveSetsSet.count(&primitive) == 0) {
+            _primitiveSetsSet.insert(&primitive);
+            _numTriangles += triangles;
+            _numQuads += quads;
+            _numFaces += triangles + quads;
+        }
+        _numInstancedTriangles += triangles;
+        _numInstancedQuads += quads;
+        _numInstancedFaces += triangles + quads;
+    }
+
+    virtual void print(std::ostream &out)
+    {
+        osgUtil::StatsVisitor::print(out);
+
+        out << std::setw(12) << "Triangles  " << std::setw(10) << _numTriangles << std::setw(10) << _numInstancedTriangles  << std::endl
+            << std::setw(12) << "Quads      " << std::setw(10) << _numQuads     << std::setw(10) << _numInstancedQuads      << std::endl
+            << std::setw(12) << "Faces      " << std::setw(10) << _numFaces     << std::setw(10) << _numInstancedFaces      << std::endl
+            << std::setw(12) << "Textures   " << std::setw(10) << _numTextures  << std::setw(10) << _numInstancedTextures   << std::endl;
+    }
+
+    virtual picojson::value toJSON()
+    {
+        unsigned int unique_primitives = 0;
+        osgUtil::Statistics::PrimitiveCountMap::iterator pcmitr;
+        for(pcmitr = _uniqueStats.GetPrimitivesBegin();
+                pcmitr != _uniqueStats.GetPrimitivesEnd();
+                ++pcmitr)
+        {
+            unique_primitives += pcmitr->second;
+        }
+
+        unsigned int instanced_primitives = 0;
+        for(pcmitr = _instancedStats.GetPrimitivesBegin();
+                pcmitr != _instancedStats.GetPrimitivesEnd();
+                ++pcmitr)
+        {
+            instanced_primitives += pcmitr->second;
+        }
+
+        picojson::object stats;
+
+        picojson::object stateSet;
+        stateSet["unique"] = picojson::value((double)_statesetSet.size());
+        stateSet["instanced"] = picojson::value((double)_numInstancedStateSet);
+        stats["StateSet"] = picojson::value(stateSet);
+
+        picojson::object group;
+        group["unique"] = picojson::value((double)_groupSet.size());
+        group["instanced"] = picojson::value((double)_numInstancedGroup);
+        stats["Group"] = picojson::value(group);
+
+        picojson::object transform;
+        transform["unique"] = picojson::value((double)_transformSet.size());
+        transform["instanced"] = picojson::value((double)_numInstancedTransform);
+        stats["Transform"] = picojson::value(transform);
+
+        picojson::object lod;
+        lod["unique"] = picojson::value((double)_lodSet.size());
+        lod["instanced"] = picojson::value((double)_numInstancedLOD);
+        stats["LOD"] = picojson::value(lod);
+
+        picojson::object oswitch;
+        oswitch["unique"] = picojson::value((double)_switchSet.size());
+        oswitch["instanced"] = picojson::value((double)_numInstancedSwitch);
+        stats["Switch"] = picojson::value(oswitch);
+
+        picojson::object geode;
+        geode["unique"] = picojson::value((double)_geodeSet.size());
+        geode["instanced"] = picojson::value((double)_numInstancedGeode);
+        stats["Geode"] = picojson::value(geode);
+
+        picojson::object drawable;
+        drawable["unique"] = picojson::value((double)_drawableSet.size());
+        drawable["instanced"] = picojson::value((double)_numInstancedDrawable);
+        stats["Drawable"] = picojson::value(drawable);
+
+        picojson::object geometry;
+        geometry["unique"] = picojson::value((double)_geometrySet.size());
+        geometry["instanced"] = picojson::value((double)_numInstancedGeometry);
+        stats["Geometry"] = picojson::value(geometry);
+
+        picojson::object fastGeom;
+        fastGeom["unique"] = picojson::value((double)_fastGeometrySet.size());
+        fastGeom["instanced"] = picojson::value((double)_numInstancedFastGeometry);
+        stats["FastGeom"] = picojson::value(fastGeom);
+
+        picojson::object vertices;
+        vertices["unique"] = picojson::value((double)_uniqueStats._vertexCount);
+        vertices["instanced"] = picojson::value((double)_instancedStats._vertexCount);
+        stats["Vertices"] = picojson::value(vertices);
+
+        picojson::object primitives;
+        primitives["unique"] = picojson::value((double)unique_primitives);
+        primitives["instanced"] = picojson::value((double)instanced_primitives);
+        stats["Primitives"] = picojson::value(primitives);
+
+        picojson::object triangles;
+        triangles["unique"] = picojson::value((double)_numTriangles);
+        triangles["instanced"] = picojson::value((double)_numInstancedTriangles);
+        stats["Triangles"] = picojson::value(triangles);
+
+        picojson::object quads;
+        quads["unique"] = picojson::value((double)_numQuads);
+        quads["instanced"] = picojson::value((double)_numInstancedQuads);
+        stats["Quads"] = picojson::value(quads);
+
+        picojson::object faces;
+        faces["unique"] = picojson::value((double)_numFaces);
+        faces["instanced"] = picojson::value((double)_numInstancedFaces);
+        stats["Faces"] = picojson::value(faces);
+
+        picojson::object textures;
+        textures["unique"] = picojson::value((double)_numTextures);
+        textures["instanced"] = picojson::value((double)_numInstancedTextures);
+        stats["Textures"] = picojson::value(textures);
+
+        return picojson::value(stats);
+    }
+
+    unsigned _numTriangles, _numInstancedTriangles;
+    unsigned _numQuads, _numInstancedQuads;
+    unsigned _numFaces, _numInstancedFaces;
+    unsigned _numTextures, _numInstancedTextures;
+    std::set<osg::PrimitiveSet*> _primitiveSetsSet;
+    std::set<osg::Texture*> _texturesSet;
+};
