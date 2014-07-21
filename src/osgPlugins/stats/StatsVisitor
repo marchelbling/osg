@@ -83,10 +83,10 @@ struct StatsVisitor : public osgUtil::StatsVisitor
                  quads = 0;
         switch (primitive.getMode()) {
             case osg::PrimitiveSet::TRIANGLES:
-                triangles = primitive.getNumIndices();
+                triangles = primitive.getNumIndices() / 3;
                 break;
             case osg::PrimitiveSet::QUADS:
-                quads = primitive.getNumIndices() * 2;
+                quads = primitive.getNumIndices() / 4;
                 break;
             case osg::PrimitiveSet::TRIANGLE_STRIP:
             case osg::PrimitiveSet::TRIANGLE_FAN:
