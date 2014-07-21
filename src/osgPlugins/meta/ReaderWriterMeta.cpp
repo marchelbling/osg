@@ -133,12 +133,13 @@ public:
     void apply(osg::Geode& node)
     {
         osg::StateSet* ss = node.getStateSet();
-        if (ss)
+        if (ss) {
             applyStateSet(ss);
+        }
         for (unsigned int i = 0; i < node.getNumDrawables(); ++i) {
-            osg::Drawable* d = node.getDrawable(i);
-            if (d && d->getStateSet()) {
-                applyStateSet(d->getStateSet());
+            osg::Drawable* drawable = node.getDrawable(i);
+            if (drawable && drawable->getStateSet()) {
+                applyStateSet(drawable->getStateSet());
             }
         }
         traverse(node);
