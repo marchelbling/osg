@@ -95,6 +95,11 @@ struct StatsVisitor : public osgUtil::StatsVisitor
             case osg::PrimitiveSet::QUAD_STRIP:
                 quads = primitive.getNumIndices() / 2 - 1;
                 break;
+            case osg::PrimitiveSet::POLYGON:
+            case osg::PrimitiveSet::PATCHES:
+                _numFaces += primitive.getNumPrimitives();
+                _numInstancedFaces += primitive.getNumPrimitives();
+                break;
         }
 
         if (_primitiveSetsSet.count(&primitive) == 0) {
