@@ -1129,9 +1129,6 @@ void VertexAccessOrderVisitor::optimizeOrder(Geometry& geom)
     if (!vertArray)
         return;
     Geometry::PrimitiveSetList& primSets = geom.getPrimitiveSetList();
-    GeometryArrayGatherer gatherer(geom);
-    if (!gatherer._useDrawElements)
-        return;
     VertexReorder vr(vertArray->getNumElements());
     for (Geometry::PrimitiveSetList::iterator itr = primSets.begin(),
              end = primSets.end();
@@ -1149,6 +1146,7 @@ void VertexAccessOrderVisitor::optimizeOrder(Geometry& geom)
 
     // duplicate shared arrays as it isn't safe to rearrange vertices when arrays are shared.
     if (geom.containsSharedArrays()) geom.duplicateSharedArrays();
+    GeometryArrayGatherer gatherer(geom);
 
     Remapper remapper(vr.remap);
     gatherer.accept(remapper);
