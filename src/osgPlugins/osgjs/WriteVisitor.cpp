@@ -10,107 +10,16 @@
 #include <osg/BlendFunc>
 #include <osgSim/ShapeAttribute>
 
-
-static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
-    switch (mode) {
-    case osg::BlendFunc::DST_ALPHA: return new JSONValue<std::string>("DST_ALPHA");
-    case osg::BlendFunc::DST_COLOR: return new JSONValue<std::string>("DST_COLOR");
-    case osg::BlendFunc::ONE: return new JSONValue<std::string>("ONE");                      
-    case osg::BlendFunc::ONE_MINUS_DST_ALPHA: return new JSONValue<std::string>("ONE_MINUS_DST_ALPHA");      
-    case osg::BlendFunc::ONE_MINUS_DST_COLOR: return new JSONValue<std::string>("ONE_MINUS_DST_COLOR");      
-    case osg::BlendFunc::ONE_MINUS_SRC_ALPHA: return new JSONValue<std::string>("ONE_MINUS_SRC_ALPHA");      
-    case osg::BlendFunc::ONE_MINUS_SRC_COLOR: return new JSONValue<std::string>("ONE_MINUS_SRC_COLOR");      
-    case osg::BlendFunc::SRC_ALPHA: return new JSONValue<std::string>("SRC_ALPHA");                
-    case osg::BlendFunc::SRC_ALPHA_SATURATE: return new JSONValue<std::string>("SRC_ALPHA_SATURATE");       
-    case osg::BlendFunc::SRC_COLOR: return new JSONValue<std::string>("SRC_COLOR");                
-    case osg::BlendFunc::CONSTANT_COLOR: return new JSONValue<std::string>("CONSTANT_COLOR");           
-    case osg::BlendFunc::ONE_MINUS_CONSTANT_COLOR: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_COLOR"); 
-    case osg::BlendFunc::CONSTANT_ALPHA: return new JSONValue<std::string>("CONSTANT_ALPHA");           
-    case osg::BlendFunc::ONE_MINUS_CONSTANT_ALPHA: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_ALPHA"); 
-    case osg::BlendFunc::ZERO: return new JSONValue<std::string>("ZERO");                     
-    default:
-        return new JSONValue<std::string>("ONE");
-    }
-    return new JSONValue<std::string>("ONE");
-}
-
-static JSONValue<std::string>* getJSONFilterMode(osg::Texture::FilterMode mode)
-{
-    switch(mode) {
-    case GL_LINEAR:
-        return new JSONValue<std::string>("LINEAR");
-    case GL_LINEAR_MIPMAP_LINEAR:
-        return new JSONValue<std::string>("LINEAR_MIPMAP_LINEAR");
-    case GL_LINEAR_MIPMAP_NEAREST:
-        return new JSONValue<std::string>("LINEAR_MIPMAP_NEAREST");
-    case GL_NEAREST:
-        return new JSONValue<std::string>("NEAREST");
-    case GL_NEAREST_MIPMAP_LINEAR:
-        return new JSONValue<std::string>("NEAREST_MIPMAP_LINEAR");
-    case GL_NEAREST_MIPMAP_NEAREST:
-        return new JSONValue<std::string>("NEAREST_MIPMAP_NEAREST");
-    default:
-        return 0;
-    }
-    return 0;
-}
-
 #include "Base64"
 
-JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDimension, const std::string &baseName)
-{
-    if (!image) {
-        osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
-        return new JSONValue<std::string>("/unknown.png");
-    } else {
-        std::string modelDir = osgDB::getFilePath(baseName);
-        if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
-            if(maxTextureDimension) {
-                int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
-                int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
 
-                bool notValidPowerOf2 = false;
-                if (new_s != image->s() || image->s() > maxTextureDimension) notValidPowerOf2 = true;
-                if (new_t != image->t() || image->t() > maxTextureDimension) notValidPowerOf2 = true;
 
-                if (notValidPowerOf2) {
-                    image->ensureValidSizeForTexturing(maxTextureDimension);
-                    if(osgDB::isAbsolutePath(image->getFileName()))
-                        osgDB::writeImageFile(*image, image->getFileName());
-                    else
-                        osgDB::writeImageFile(*image,
-                                              osgDB::concatPaths(modelDir,
-                                                                 image->getFileName()));
-                }
-            }
-        } else {
-            // no image file so use this inline name image and create a file
-            std::stringstream ss;
-            ss << osgDB::getFilePath(baseName) << osgDB::getNativePathSeparator();
-            ss << (long int)image << ".inline_conv_generated.png"; // write the pointer location
-            std::string filename = ss.str();
-            if (osgDB::writeImageFile(*image, filename)) {
-                image->setFileName(filename);
-            }
-        }
-
-        if (!image->getFileName().empty()) { // means that everything went ok
-            if (inlineImages) {
-
-                std::ifstream in(osgDB::findDataFile(image->getFileName()).c_str());
-                if (in.is_open())
-                {
-                    std::stringstream out;
-                    out << "data:image/" << osgDB::getLowerCaseFileExtension(image->getFileName()) << ";base64,";
-                    base64::encode(std::istreambuf_iterator<char>(in),
-                                   std::istreambuf_iterator<char>(),
-                                   std::ostreambuf_iterator<char>(out), false);
-
-                    return new JSONValue<std::string>(out.str());
-
-                }
-            }
-            return new JSONValue<std::string>(image->getFileName());
+osg::Array* getTangentSpaceArray(osg::Geometry& geometry) {
+    for(unsigned int i = 0 ; i < geometry.getNumVertexAttribArrays() ; ++ i) {
+        osg::Array* attribute = geometry.getVertexAttribArray(i);
+        bool isTangentArray = false;
+        if(attribute && attribute->getUserValue("tangent", isTangentArray) && isTangentArray) {
+            return attribute;
         }
     }
     return 0;
@@ -216,6 +125,50 @@ bool getStringifiedUserValue(osg::Object* o, std::string& name, std::string& val
 }
 
 
+static JSONValue<std::string>* getBlendFuncMode(GLenum mode) {
+    switch (mode) {
+    case osg::BlendFunc::DST_ALPHA: return new JSONValue<std::string>("DST_ALPHA");
+    case osg::BlendFunc::DST_COLOR: return new JSONValue<std::string>("DST_COLOR");
+    case osg::BlendFunc::ONE: return new JSONValue<std::string>("ONE");
+    case osg::BlendFunc::ONE_MINUS_DST_ALPHA: return new JSONValue<std::string>("ONE_MINUS_DST_ALPHA");
+    case osg::BlendFunc::ONE_MINUS_DST_COLOR: return new JSONValue<std::string>("ONE_MINUS_DST_COLOR");
+    case osg::BlendFunc::ONE_MINUS_SRC_ALPHA: return new JSONValue<std::string>("ONE_MINUS_SRC_ALPHA");
+    case osg::BlendFunc::ONE_MINUS_SRC_COLOR: return new JSONValue<std::string>("ONE_MINUS_SRC_COLOR");
+    case osg::BlendFunc::SRC_ALPHA: return new JSONValue<std::string>("SRC_ALPHA");
+    case osg::BlendFunc::SRC_ALPHA_SATURATE: return new JSONValue<std::string>("SRC_ALPHA_SATURATE");
+    case osg::BlendFunc::SRC_COLOR: return new JSONValue<std::string>("SRC_COLOR");
+    case osg::BlendFunc::CONSTANT_COLOR: return new JSONValue<std::string>("CONSTANT_COLOR");
+    case osg::BlendFunc::ONE_MINUS_CONSTANT_COLOR: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_COLOR");
+    case osg::BlendFunc::CONSTANT_ALPHA: return new JSONValue<std::string>("CONSTANT_ALPHA");
+    case osg::BlendFunc::ONE_MINUS_CONSTANT_ALPHA: return new JSONValue<std::string>("ONE_MINUS_CONSTANT_ALPHA");
+    case osg::BlendFunc::ZERO: return new JSONValue<std::string>("ZERO");
+    default:
+        return new JSONValue<std::string>("ONE");
+    }
+    return new JSONValue<std::string>("ONE");
+}
+
+static JSONValue<std::string>* getJSONFilterMode(osg::Texture::FilterMode mode)
+{
+    switch(mode) {
+    case GL_LINEAR:
+        return new JSONValue<std::string>("LINEAR");
+    case GL_LINEAR_MIPMAP_LINEAR:
+        return new JSONValue<std::string>("LINEAR_MIPMAP_LINEAR");
+    case GL_LINEAR_MIPMAP_NEAREST:
+        return new JSONValue<std::string>("LINEAR_MIPMAP_NEAREST");
+    case GL_NEAREST:
+        return new JSONValue<std::string>("NEAREST");
+    case GL_NEAREST_MIPMAP_LINEAR:
+        return new JSONValue<std::string>("NEAREST_MIPMAP_LINEAR");
+    case GL_NEAREST_MIPMAP_NEAREST:
+        return new JSONValue<std::string>("NEAREST_MIPMAP_NEAREST");
+    default:
+        return 0;
+    }
+    return 0;
+}
+
 static JSONValue<std::string>* getJSONWrapMode(osg::Texture::WrapMode mode)
 {
     switch(mode) {
@@ -236,6 +189,67 @@ static JSONValue<std::string>* getJSONWrapMode(osg::Texture::WrapMode mode)
     }
     return 0;
 }
+
+
+JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDimension, const std::string &baseName)
+{
+    if (!image) {
+        osg::notify(osg::WARN) << "unknown image from texture2d " << std::endl;
+        return new JSONValue<std::string>("/unknown.png");
+    } else {
+        std::string modelDir = osgDB::getFilePath(baseName);
+        if (!image->getFileName().empty() && image->getWriteHint() != osg::Image::STORE_INLINE) {
+            if(maxTextureDimension) {
+                int new_s = osg::Image::computeNearestPowerOfTwo(image->s());
+                int new_t = osg::Image::computeNearestPowerOfTwo(image->t());
+
+                bool notValidPowerOf2 = false;
+                if (new_s != image->s() || image->s() > maxTextureDimension) notValidPowerOf2 = true;
+                if (new_t != image->t() || image->t() > maxTextureDimension) notValidPowerOf2 = true;
+
+                if (notValidPowerOf2) {
+                    image->ensureValidSizeForTexturing(maxTextureDimension);
+                    if(osgDB::isAbsolutePath(image->getFileName()))
+                        osgDB::writeImageFile(*image, image->getFileName());
+                    else
+                        osgDB::writeImageFile(*image,
+                                              osgDB::concatPaths(modelDir,
+                                                                 image->getFileName()));
+                }
+            }
+        } else {
+            // no image file so use this inline name image and create a file
+            std::stringstream ss;
+            ss << osgDB::getFilePath(baseName) << osgDB::getNativePathSeparator();
+            ss << (long int)image << ".inline_conv_generated.png"; // write the pointer location
+            std::string filename = ss.str();
+            if (osgDB::writeImageFile(*image, filename)) {
+                image->setFileName(filename);
+            }
+        }
+
+        if (!image->getFileName().empty()) { // means that everything went ok
+            if (inlineImages) {
+
+                std::ifstream in(osgDB::findDataFile(image->getFileName()).c_str());
+                if (in.is_open())
+                {
+                    std::stringstream out;
+                    out << "data:image/" << osgDB::getLowerCaseFileExtension(image->getFileName()) << ";base64,";
+                    base64::encode(std::istreambuf_iterator<char>(in),
+                                   std::istreambuf_iterator<char>(),
+                                   std::ostreambuf_iterator<char>(out), false);
+
+                    return new JSONValue<std::string>(out.str());
+
+                }
+            }
+            return new JSONValue<std::string>(image->getFileName());
+        }
+    }
+    return 0;
+}
+
 
 JSONObject* WriteVisitor::createJSONBufferArray(osg::Array* array, osg::Geometry* geom)
 {
@@ -409,17 +423,15 @@ JSONObject* WriteVisitor::createJSONGeometry(osg::Geometry* geom)
             }
         }
     }
-    size_t TANGENT_ATTRIBUTE_INDEX;
-    if(geom->getUserValue("TANGENT_ATTRIBUTE_INDEX", TANGENT_ATTRIBUTE_INDEX))
-    {
-      if (geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)) {
-          attributes->getMaps()["Tangent"] = createJSONBufferArray(geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX), geom);
-          int nb = geom->getVertexAttribArray(TANGENT_ATTRIBUTE_INDEX)->getNumElements();
-          if (nbVertexes != nb) {
-              osg::notify(osg::FATAL) << "Fatal nb tangent " << nb << " != " << nbVertexes << std::endl;
-              error();
-          }
-      }
+
+    osg::Array* tangents = getTangentSpaceArray(*geom);
+    if (tangents) {
+        attributes->getMaps()["Tangent"] = createJSONBufferArray(tangents, geom);
+        int nb = tangents->getNumElements();
+        if (nbVertexes != nb) {
+            osg::notify(osg::FATAL) << "Fatal nb tangent " << nb << " != " << nbVertexes << std::endl;
+            error();
+        }
     }
 
     json->getMaps()["VertexAttributeList"] = attributes;
@@ -726,7 +738,7 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
         obj->getMaps()["osg.BlendColor"] = createJSONBlendColor(blendColor);
         attributeList->getArray().push_back(obj);
     }
-    
+
 
     if (!attributeList->getArray().empty()) {
         jsonStateSet->getMaps()["AttributeList"] = attributeList;

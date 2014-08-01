@@ -31,10 +31,12 @@
 
 #define WRITER_VERSION 7
 
+osg::Array* getTangentSpaceArray(osg::Geometry& geometry);
+void translateObject(JSONObject* json, osg::Object* osg);
 void getStringifiedUserValue(osg::Object* o, std::string& name, std::string& value);
 template<typename T>
 bool getStringifiedUserValue(osg::Object* o, std::string& name, std::string& value);
-void translateObject(JSONObject* json, osg::Object* osg);
+
 
 class WriteVisitor : public osg::NodeVisitor
 {
