@@ -36,7 +36,8 @@ class OSGUTIL_EXPORT TriStripVisitor : public BaseOptimizerVisitor
                 BaseOptimizerVisitor( optimizer, Optimizer::TRISTRIP_GEOMETRY),
                 _cacheSize( 16 ),
                 _minStripSize( 2 ),
-                _generateFourPointPrimitivesQuads ( false)
+                _generateFourPointPrimitivesQuads ( false),
+                _allowDrawArrays( true )
         {}
 
         /** Convert mesh primitives in Geometry into Tri Strips.
@@ -71,6 +72,16 @@ class OSGUTIL_EXPORT TriStripVisitor : public BaseOptimizerVisitor
             return _minStripSize;
         }
 
+        inline void setAllowDrawArrays( bool allow )
+        {
+            _allowDrawArrays = allow;
+        }
+
+        inline bool getAllowDrawArrays() const
+        {
+            return _allowDrawArrays;
+        }
+
 
         void setGenerateFourPointPrimitivesQuads(bool flag) { _generateFourPointPrimitivesQuads = flag; }
         bool getGenerateFourPointPrimitivesQuads() const { return _generateFourPointPrimitivesQuads; }
@@ -84,6 +95,7 @@ class OSGUTIL_EXPORT TriStripVisitor : public BaseOptimizerVisitor
         unsigned int _minStripSize;
         GeometryList _geometryList;
         bool         _generateFourPointPrimitivesQuads;
+        bool         _allowDrawArrays;
 };
 
 }

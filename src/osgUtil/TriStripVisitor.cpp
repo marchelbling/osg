@@ -474,7 +474,7 @@ void TriStripVisitor::stripify(Geometry& geom)
                 }
 
 
-                if (inOrder)
+                if (_allowDrawArrays && inOrder)
                 {
                     new_primitives.push_back(new osg::DrawArrays(GL_QUADS,indices.front(),indices.size()));
                 }
@@ -515,7 +515,7 @@ void TriStripVisitor::stripify(Geometry& geom)
                     previousValue = *qi_itr;
                 }
 
-                if (inOrder)
+                if (_allowDrawArrays && inOrder)
                 {
                     new_primitives.push_back(new osg::DrawArrays(pitr->Type,pitr->Indices.front(),pitr->Indices.size()));
                 }
